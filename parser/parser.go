@@ -2,7 +2,7 @@ package parser
 
 import (
 	"github.com/google/gopacket"
-	"golang.org/x/net/http2"
+	"github.com/jhump/protoreflect/dynamic"
 )
 
 type Parser struct{}
@@ -11,6 +11,6 @@ func New(protoFilename, guessMethod string) *Parser {
 	return nil
 }
 
-func (p *Parser) Parse(packet gopacket.Packet) (frame http2.DataFrame) {
+func (p *Parser) Parse(packet gopacket.Packet) (msg dynamic.Message, err error) {
 	return
 }

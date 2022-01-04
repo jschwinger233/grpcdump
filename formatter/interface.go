@@ -1,7 +1,7 @@
 package formatter
 
-import "golang.org/x/net/http2"
+import "github.com/jhump/protoreflect/dynamic"
 
 type Formatter interface {
-	Format(http2.DataFrame)
+	Format(dynamic.Message)
 }

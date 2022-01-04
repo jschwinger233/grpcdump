@@ -42,10 +42,17 @@ func main() {
 			formatter = grpcurlformatter.New(args.Verbose)
 		}
 
+		ch, err := provider.PacketStream()
+		if err != nil {
+			return
+		}
 		parser := parser.New(args.ProtoFilename, args.GuessMethod)
-		for packet := range provider.PacketStream() {
-			frame := parser.Parse(packet)
-			formatter.Format(frame)
+		for packet := range ch {
+			msg, err := parser.Parse(packet)
+			if err != nil {
+				return err
+			}
+			formatter.Format(msg)
 		}
 	}
 	if err := app.Run(os.Args); err != nil {
