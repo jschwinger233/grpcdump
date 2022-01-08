@@ -4,11 +4,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/jschwinger23/grpcdump/formatter"
-	"github.com/jschwinger23/grpcdump/formatter/grpcurlformatter"
-	"github.com/jschwinger23/grpcdump/formatter/jsonformatter"
-	"github.com/jschwinger23/grpcdump/formatter/textformatter"
+	"github.com/jschwinger23/grpcdump/handler"
+	"github.com/jschwinger23/grpcdump/handler/grpcurlhandler"
+	"github.com/jschwinger23/grpcdump/handler/jsonhandler"
+	"github.com/jschwinger23/grpcdump/handler/texthandler"
 	"github.com/jschwinger23/grpcdump/parser"
+	"github.com/jschwinger23/grpcdump/parser/grpcparser"
 	"github.com/jschwinger23/grpcdump/provider"
 	"github.com/jschwinger23/grpcdump/provider/pcaprovider"
 	"github.com/jschwinger23/grpcdump/provider/sniffprovider"
@@ -16,15 +17,20 @@ import (
 )
 
 func main() {
+	var (
+		provider provider.Provider
+		parser   parser.Parser
+		handler  handler.GrpcHandler
+	)
+
 	app := cli.NewApp()
 	app.Flags = flags
-	app.Action = func(ctx *cli.Context) (err error) {
+	app.After = func(ctx *cli.Context) (err error) {
 		args, err := newArgs(ctx)
 		if err != nil {
 			return
 		}
 
-		var provider provider.Provider
 		switch args.ProvideMethod {
 		case BySniff:
 			provider = sniffprovider.New(args.Source)
@@ -32,27 +38,33 @@ func main() {
 			provider = pcaprovider.New(args.Source)
 		}
 
-		var formatter formatter.Formatter
-		switch args.OutputFormat {
-		case Text:
-			formatter = textformatter.New(args.Verbose)
-		case Json:
-			formatter = jsonformatter.New(args.Verbose)
-		case Grpcurl:
-			formatter = grpcurlformatter.New(args.Verbose)
+		parser, err = grpcparser.New(args.ProtoFilename, args.GuessMethod)
+		if err != nil {
+			return
 		}
 
+		switch args.OutputFormat {
+		case Text:
+			handler = texthandler.New(args.Verbose)
+		case Json:
+			handler = jsonhandler.New(args.Verbose)
+		case Grpcurl:
+			handler = grpcurlhandler.New(args.Verbose)
+		}
+
+		return
+	}
+	app.Action = func(ctx *cli.Context) (err error) {
 		ch, err := provider.PacketStream()
 		if err != nil {
 			return
 		}
-		parser := parser.New(args.ProtoFilename, args.GuessMethod)
 		for packet := range ch {
-			msg, err := parser.Parse(packet)
+			dataHolder, err := parser.Parse(packet)
 			if err != nil {
 				return err
 			}
-			formatter.Format(msg)
+			dataHolder(handler)
 		}
 	}
 	if err := app.Run(os.Args); err != nil {
