@@ -20,7 +20,7 @@ var flags []cli.Flag = []cli.Flag{
 		Required: false,
 	},
 	&cli.StringFlag{
-		Name:     "proto-filename",
+		Name:     "proto-file",
 		Aliases:  []string{"f"},
 		Usage:    "proto file to parse http2 frame; e.g. -f rpc.proto",
 		Required: true,
@@ -93,7 +93,7 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 		args.Source = pcapFilename
 	}
 
-	args.ProtoFilename = ctx.String("proto-filename")
+	args.ProtoFilename = ctx.String("proto-file")
 	args.GuessMethod = ctx.String("method-for-unknown-stream")
 
 	switch ctx.String("output-format") {

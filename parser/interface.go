@@ -2,9 +2,9 @@ package parser
 
 import (
 	"github.com/google/gopacket"
-	"github.com/jschwinger23/grpcdump/handler"
+	"github.com/jschwinger23/grpcdump/grpchelper"
 )
 
 type Parser interface {
-	Parse(gopacket.Packet) (func(handler.GrpcHandler) error, error)
+	Parse(gopacket.Packet) ([]grpchelper.Message, error)
 }

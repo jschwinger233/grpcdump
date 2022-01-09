@@ -2,92 +2,148 @@ package grpcparser
 
 import (
 	"bytes"
-	"errors"
 	"io/ioutil"
-	"path/filepath"
+	"strings"
 
 	"github.com/google/gopacket"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/desc/protoparse"
-	"github.com/jhump/protoreflect/dynamic"
+	"github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/parser"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
 )
 
 type (
-	ServiceName = string
-	MethodName  = string
+	StreamID = uint32
+	ConnID   = string
 )
 
 type Parser struct {
 	protoFilename string
-	guessMethod   string
-
-	grpcInputTypes  map[ServiceName]map[MethodName]*desc.MessageDescriptor
-	grpcOutputTypes map[ServiceName]map[MethodName]*desc.MessageDescriptor
+	guessPath     string
+	protoParser   grpchelper.ProtoParser
+	streams       map[ConnID]map[StreamID][]grpchelper.Message
 }
 
-func New(protoFilename, guessMethod string) (_ parser.Parser, err error) {
-	p := &Parser{
+type GrpcStreamMessage struct {
+	ConnID
+}
+
+func New(protoFilename, guessPath string) (_ parser.Parser, err error) {
+	protoParser, err := grpchelper.NewProtoParser(protoFilename)
+	if err != nil {
+		return
+	}
+	return &Parser{
 		protoFilename: protoFilename,
-		guessMethod:   guessMethod,
-	}
-	p.grpcInputTypes, p.grpcOutputTypes, err = loadProto(protoFilename)
-	return nil, err
+		guessPath:     guessPath,
+		protoParser:   protoParser,
+		streams:       map[ConnID]map[StreamID][]grpchelper.Message{},
+	}, nil
 }
 
-func loadProto(filename string) (input, output map[ServiceName]map[MethodName]*desc.MessageDescriptor, err error) {
-	input = make(map[ServiceName]map[MethodName]*desc.MessageDescriptor)
-	output = make(map[ServiceName]map[MethodName]*desc.MessageDescriptor)
+func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, err error) {
+	appLayer := packet.ApplicationLayer()
+	if appLayer == nil {
+		return
+	}
+	payload := appLayer.Payload()
+	framer := http2.NewFramer(ioutil.Discard, bytes.NewReader(payload))
+	// TODO: partial decode
+	framer.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
+	for {
+		frame, err := framer.ReadFrame()
+		if err != nil {
+			break
+		}
 
-	if filename, err = filepath.Abs(filename); err != nil {
-		return
-	}
-	dir, base := filepath.Dir(filename), filepath.Base(filename)
-	fileNames, err := protoparse.ResolveFilenames([]string{dir}, base)
-	if err != nil {
-		return
-	}
-	p := protoparse.Parser{
-		ImportPaths:           []string{dir},
-		IncludeSourceCodeInfo: true,
-	}
-	parsedFiles, err := p.ParseFiles(fileNames...)
-	if err != nil {
-		return
-	}
+		streamID := frame.Header().StreamID
+		connID := getConnID(packet)
+		if _, ok := p.streams[connID]; !ok {
+			p.streams[connID] = make(map[StreamID][]grpchelper.Message)
+		}
 
-	if len(parsedFiles) < 1 {
-		err = errors.New("proto file not found")
-		return
-	}
+		var message grpchelper.Message
+		switch frame := frame.(type) {
+		case *http2.MetaHeadersFrame:
+			payload := map[string]string{}
+			for _, field := range frame.Fields {
+				payload[field.Name] = field.Value
+			}
 
-	for _, parsedFile := range parsedFiles {
-		for _, service := range parsedFile.GetServices() {
-			input[service.GetName()] = make(map[MethodName]*desc.MessageDescriptor)
-			output[service.GetName()] = make(map[MethodName]*desc.MessageDescriptor)
-			for _, method := range service.GetMethods() {
-				input[service.GetName()][method.GetName()] = method.GetInputType()
-				output[service.GetName()][method.GetName()] = method.GetOutputType()
+			message = grpchelper.Message{
+				Type: grpchelper.HeaderType,
+				Header: grpchelper.Header{
+					HTTP2Header: frame.Header(),
+					Payload:     payload,
+				},
+			}
+
+		case *http2.DataFrame:
+			var (
+				request         bool
+				service, method string
+			)
+			if p.guessPath != "" {
+				parts := strings.Split(p.guessPath, "/")
+				service, method = parts[1], parts[2]
+			}
+
+			for _, msg := range p.streams[connID][streamID] {
+				if msg.Type == grpchelper.HeaderType {
+					for key := range msg.Header.Payload {
+						if key == ":path" {
+							request = true
+							parts := strings.Split(msg.Header.Payload[key], "/")
+							service, method = parts[1], parts[2]
+						}
+						if key == ":status" {
+							request = false
+						}
+					}
+				}
+			}
+
+			// search opposite flow
+			if !request {
+				for _, msg := range p.streams[revConnID(connID)][streamID] {
+					if msg.Type == grpchelper.HeaderType {
+						for key := range msg.Header.Payload {
+							if key == ":path" {
+								parts := strings.Split(msg.Header.Payload[key], "/")
+								service, method = parts[1], parts[2]
+							}
+						}
+					}
+				}
+			}
+
+			if service == "" || method == "" {
+				continue
+			}
+
+			if request {
+				message = grpchelper.Message{
+					Type: grpchelper.RequestType,
+					Request: grpchelper.Request{
+						HTTP2Header: frame.Header(),
+					},
+				}
+				message.Request.Payload, err = p.protoParser.MarshalRequest(service, method, frame.Data()[5:])
+			} else {
+				message = grpchelper.Message{
+					Type: grpchelper.ResponseType,
+					Response: grpchelper.Response{
+						HTTP2Header: frame.Header(),
+					},
+				}
+				message.Response.Payload, err = p.protoParser.MarshalResponse(service, method, frame.Data()[5:])
+			}
+			if err != nil {
+				continue
 			}
 		}
+		p.streams[connID][streamID] = append(p.streams[connID][streamID], message)
+		messages = append(messages, message)
 	}
-
-}
-
-func (p *Parser) Parse(packet gopacket.Packet) (msg dynamic.Message, err error) {
-	payload := packet.ApplicationLayer().Payload()
-	framer := http2.NewFramer(ioutil.Discard, bytes.NewReader(payload))
-	frame, err := framer.ReadFrame()
-	if err != nil {
-		return
-	}
-
-	_, ok := frame.(*http2.DataFrame)
-	if !ok {
-		err = errors.New("failed to cast type from http.Frame to http2.DataFrame")
-		return
-	}
-
-	return
+	return messages, nil
 }

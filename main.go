@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 
@@ -25,7 +26,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Flags = flags
-	app.After = func(ctx *cli.Context) (err error) {
+	app.Before = func(ctx *cli.Context) (err error) {
 		args, err := newArgs(ctx)
 		if err != nil {
 			return
@@ -36,6 +37,8 @@ func main() {
 			provider = sniffprovider.New(args.Source)
 		case ByPcapFile:
 			provider = pcaprovider.New(args.Source)
+		default:
+			return errors.New("provider not specified")
 		}
 
 		parser, err = grpcparser.New(args.ProtoFilename, args.GuessMethod)
@@ -50,6 +53,8 @@ func main() {
 			handler = jsonhandler.New(args.Verbose)
 		case Grpcurl:
 			handler = grpcurlhandler.New(args.Verbose)
+		default:
+			return errors.New("output format not specified")
 		}
 
 		return
@@ -60,12 +65,17 @@ func main() {
 			return
 		}
 		for packet := range ch {
-			dataHolder, err := parser.Parse(packet)
+			messages, err := parser.Parse(packet)
 			if err != nil {
 				return err
 			}
-			dataHolder(handler)
+			for _, message := range messages {
+				if err := handler.Handle(message); err != nil {
+					return err
+				}
+			}
 		}
+		return
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatalf("failed to run app: %+v", err)
