@@ -18,10 +18,10 @@ type (
 )
 
 type Parser struct {
-	protoFilename string
-	guessPath     string
-	protoParser   grpchelper.ProtoParser
-	streams       map[ConnID]map[StreamID][]grpchelper.Message
+	protoFilename             string
+	guessService, guessMethod string
+	protoParser               grpchelper.ProtoParser
+	streams                   map[ConnID]map[StreamID][]grpchelper.Message
 }
 
 type GrpcStreamMessage struct {
@@ -33,9 +33,16 @@ func New(protoFilename, guessPath string) (_ parser.Parser, err error) {
 	if err != nil {
 		return
 	}
+
+	var guessService, guessMethod string
+	if guessPath != "" {
+		parts := strings.Split(guessPath, "/")
+		guessService, guessMethod = parts[len(parts)-2], parts[len(parts)-1]
+	}
 	return &Parser{
 		protoFilename: protoFilename,
-		guessPath:     guessPath,
+		guessService:  guessService,
+		guessMethod:   guessMethod,
 		protoParser:   protoParser,
 		streams:       map[ConnID]map[StreamID][]grpchelper.Message{},
 	}, nil
@@ -83,9 +90,8 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 				request         bool
 				service, method string
 			)
-			if p.guessPath != "" {
-				parts := strings.Split(p.guessPath, "/")
-				service, method = parts[1], parts[2]
+			if p.guessMethod != "" {
+				service, method = p.guessService, p.guessMethod
 			}
 
 			for _, msg := range p.streams[connID][streamID] {

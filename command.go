@@ -26,7 +26,7 @@ var flags []cli.Flag = []cli.Flag{
 		Required: true,
 	},
 	&cli.StringFlag{
-		Name:     "method-for-unknown-stream",
+		Name:     "guess-path",
 		Aliases:  []string{"m"},
 		Usage:    "rpc method to parse response frame whose request method is unknown; e.g. -m Watch",
 		Required: false,
@@ -70,7 +70,7 @@ type Args struct {
 
 	// parser
 	ProtoFilename string
-	GuessMethod   string
+	GuessPath     string
 
 	// outputter
 	OutputFormat
@@ -94,7 +94,7 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 	}
 
 	args.ProtoFilename = ctx.String("proto-file")
-	args.GuessMethod = ctx.String("method-for-unknown-stream")
+	args.GuessPath = ctx.String("guess-path")
 
 	switch ctx.String("output-format") {
 	case "text":
