@@ -1,6 +1,8 @@
 package texthandler
 
 import (
+	"fmt"
+
 	"github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/handler"
 )
@@ -16,6 +18,8 @@ func (h *TextHandler) Handle(msg grpchelper.Message) (err error) {
 		println(msg.Request.Payload.String())
 	} else if msg.Type == grpchelper.ResponseType {
 		println(msg.Response.Payload.String())
+	} else if msg.Type == grpchelper.HeaderType {
+		fmt.Printf("%+v\n", msg.Header.Payload)
 	}
 	return
 }

@@ -2,6 +2,7 @@ package grpcparser
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"strings"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/parser"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/hpack"
 )
 
 type (
@@ -55,12 +55,13 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 	}
 	payload := appLayer.Payload()
 	framer := http2.NewFramer(ioutil.Discard, bytes.NewReader(payload))
-	// TODO: partial decode
-	framer.ReadMetaHeaders = hpack.NewDecoder(4096, nil)
 	for {
 		frame, err := framer.ReadFrame()
 		if err != nil {
-			break
+			if err == io.EOF {
+				break
+			}
+			continue
 		}
 
 		streamID := frame.Header().StreamID
@@ -71,9 +72,10 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 
 		var message grpchelper.Message
 		switch frame := frame.(type) {
-		case *http2.MetaHeadersFrame:
+		case *http2.HeadersFrame:
 			payload := map[string]string{}
-			for _, field := range frame.Fields {
+			buf := frame.HeaderBlockFragment()
+			for _, field := range hpackDecodePartial(buf) {
 				payload[field.Name] = field.Value
 			}
 
