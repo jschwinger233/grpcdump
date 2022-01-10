@@ -23,7 +23,8 @@ type Response struct {
 type Type int
 
 const (
-	HeaderType Type = iota
+	UnknownType Type = iota
+	HeaderType
 	RequestType
 	ResponseType
 )

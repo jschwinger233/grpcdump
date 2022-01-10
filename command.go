@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 
 	cli "github.com/urfave/cli/v2"
 )
@@ -28,7 +29,7 @@ var flags []cli.Flag = []cli.Flag{
 	&cli.StringFlag{
 		Name:     "guess-path",
 		Aliases:  []string{"m"},
-		Usage:    "rpc method to parse response frame whose request method is unknown; e.g. -m Watch",
+		Usage:    "rpc method to parse response frame whose request method is unknown; e.g. -m /pb.CoreRPC/WatchServiceStatus,/pb.CoreRPC/SetWorkloadsStatus",
 		Required: false,
 	},
 	&cli.StringFlag{
@@ -70,7 +71,7 @@ type Args struct {
 
 	// parser
 	ProtoFilename string
-	GuessPath     string
+	GuessPaths    []string
 
 	// outputter
 	OutputFormat
@@ -94,7 +95,10 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 	}
 
 	args.ProtoFilename = ctx.String("proto-file")
-	args.GuessPath = ctx.String("guess-path")
+	args.GuessPaths = strings.Split(ctx.String("guess-path"), ",")
+	if args.GuessPaths[0] == "" {
+		args.GuessPaths = []string{}
+	}
 
 	switch ctx.String("output-format") {
 	case "text":
