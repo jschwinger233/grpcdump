@@ -16,14 +16,14 @@ func New() handler.GrpcHandler {
 }
 
 type Output struct {
-	Time     time.Time `json:"time"`
-	Src      string    `json:"src"`
-	Dst      string    `json:"dst"`
-	Sport    int       `json:"sport"`
-	Dport    int       `json:"dport"`
-	StreamID uint32    `json:"stream_id"`
-	Type     string    `json:"type"`
-	Payload  string    `json:"payload"`
+	Time     time.Time   `json:"time"`
+	Src      string      `json:"src"`
+	Dst      string      `json:"dst"`
+	Sport    int         `json:"sport"`
+	Dport    int         `json:"dport"`
+	StreamID uint32      `json:"stream_id"`
+	Type     string      `json:"type"`
+	Payload  interface{} `json:"payload"`
 }
 
 func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
@@ -39,22 +39,33 @@ func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
 	switch msg.Type {
 	case grpchelper.RequestType:
 		o.Type = "Data"
-		o.Payload = msg.Request.String()
-		bytes, err = json.Marshal(o)
+		if bytes, err = msg.Response.MarshalJSON(); err != nil {
+			return
+		}
+		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
+			return
+		}
 	case grpchelper.ResponseType:
 		o.Type = "Data"
-		o.Payload = msg.Response.String()
-		bytes, err = json.Marshal(0)
+		if bytes, err = msg.Response.MarshalJSON(); err != nil {
+			return
+		}
+		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
+			return
+		}
 	case grpchelper.HeaderType:
 		o.Type = "Header"
-		o.Payload = fmt.Sprintf("%q", msg.Header)
-		bytes, err = json.Marshal(o)
+		if bytes, err = json.Marshal(msg.Header); err != nil {
+			return
+		}
+		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
+			return
+		}
 	case grpchelper.UnknownType:
 		o.Type = "Unknown"
 		o.Payload = "unknown data frame"
-		bytes, err = json.Marshal(o)
 	}
-	if err != nil {
+	if bytes, err = json.Marshal(o); err != nil {
 		return
 	}
 	fmt.Printf("%s\n", string(bytes))

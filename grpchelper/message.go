@@ -33,9 +33,9 @@ type Message struct {
 }
 
 func (m Message) ConnID() string {
-	return fmt.Sprintf("%s:%s->%s:%s", m.Src, m.Sport, m.Dst, m.Dport)
+	return fmt.Sprintf("%s:%d->%s:%d", m.Src, m.Sport, m.Dst, m.Dport)
 }
 
 func (m Message) RevConnID() string {
-	return fmt.Sprintf("%s:%s->%s:%s", m.Dst, m.Dport, m.Src, m.Sport)
+	return fmt.Sprintf("%s:%d->%s:%d", m.Dst, m.Dport, m.Src, m.Sport)
 }

@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/google/gopacket v1.1.19
-	github.com/jhump/protoreflect v1.9.0
+	github.com/jhump/protoreflect v1.10.1
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 )
