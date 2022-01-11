@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/google/gopacket"
 	"github.com/jschwinger23/grpcdump/grpchelper"
@@ -56,14 +57,16 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 		}
 
 		streamID := frame.Header().StreamID
+		sport, _ := strconv.Atoi(packet.TransportLayer().TransportFlow().Src().String())
+		dport, _ := strconv.Atoi(packet.TransportLayer().TransportFlow().Dst().String())
 		var message grpchelper.Message = grpchelper.Message{
 			Meta: grpchelper.Meta{
 				CaptureInfo: packet.Metadata().CaptureInfo,
 				HTTP2Header: frame.Header(),
 				Src:         packet.NetworkLayer().NetworkFlow().Src().String(),
 				Dst:         packet.NetworkLayer().NetworkFlow().Src().String(),
-				Sport:       packet.TransportLayer().TransportFlow().Src().String(),
-				Dport:       packet.TransportLayer().TransportFlow().Dst().String(),
+				Sport:       sport,
+				Dport:       dport,
 			},
 		}
 		if _, ok := p.streams[message.ConnID()]; !ok {

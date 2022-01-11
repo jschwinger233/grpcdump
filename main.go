@@ -48,11 +48,11 @@ func main() {
 
 		switch args.OutputFormat {
 		case Text:
-			handler = texthandler.New(args.Verbose)
+			handler = texthandler.New()
 		case Json:
-			handler = jsonhandler.New(args.Verbose)
+			handler = jsonhandler.New()
 		case Grpcurl:
-			handler = grpcurlhandler.New(args.Verbose)
+			handler = grpcurlhandler.New()
 		default:
 			return errors.New("output format not specified")
 		}

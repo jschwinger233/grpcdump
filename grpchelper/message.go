@@ -20,7 +20,7 @@ const (
 type Meta struct {
 	gopacket.CaptureInfo
 	Src, Dst     string
-	Sport, Dport string
+	Sport, Dport int
 	HTTP2Header  http2.FrameHeader
 }
 

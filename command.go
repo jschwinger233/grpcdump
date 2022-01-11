@@ -43,12 +43,6 @@ var flags []cli.Flag = []cli.Flag{
 		Usage:       "output format including 'text', 'json', 'grpcurl'",
 		Required:    false,
 	},
-	&cli.BoolFlag{
-		Name:     "verbose",
-		Aliases:  []string{"v"},
-		Usage:    "output http2 frames when verbose on",
-		Required: false,
-	},
 }
 
 type ProvideMethod int
@@ -80,7 +74,6 @@ type Args struct {
 
 	// outputter
 	OutputFormat
-	Verbose bool
 }
 
 func newArgs(ctx *cli.Context) (args *Args, err error) {
@@ -113,9 +106,10 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 		args.OutputFormat = Json
 	case "grpcurl":
 		args.OutputFormat = Grpcurl
+	default:
+		args.OutputFormat = Text
 	}
 
-	args.Verbose = ctx.Bool("verbose")
 	return args, args.Validate()
 }
 
