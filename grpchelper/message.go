@@ -1,24 +1,12 @@
 package grpchelper
 
 import (
+	"fmt"
+
+	"github.com/google/gopacket"
 	"github.com/jhump/protoreflect/dynamic"
 	"golang.org/x/net/http2"
 )
-
-type Header struct {
-	HTTP2Header http2.FrameHeader
-	Payload     map[string]string
-}
-
-type Request struct {
-	HTTP2Header http2.FrameHeader
-	Payload     *dynamic.Message
-}
-
-type Response struct {
-	HTTP2Header http2.FrameHeader
-	Payload     *dynamic.Message
-}
 
 type Type int
 
@@ -29,9 +17,25 @@ const (
 	ResponseType
 )
 
+type Meta struct {
+	gopacket.CaptureInfo
+	Src, Dst     string
+	Sport, Dport string
+	HTTP2Header  http2.FrameHeader
+}
+
 type Message struct {
+	Meta
 	Type
-	Header
-	Request
-	Response
+	Header   map[string]string
+	Request  *dynamic.Message
+	Response *dynamic.Message
+}
+
+func (m Message) ConnID() string {
+	return fmt.Sprintf("%s:%s->%s:%s", m.Src, m.Sport, m.Dst, m.Dport)
+}
+
+func (m Message) RevConnID() string {
+	return fmt.Sprintf("%s:%s->%s:%s", m.Dst, m.Dport, m.Src, m.Sport)
 }

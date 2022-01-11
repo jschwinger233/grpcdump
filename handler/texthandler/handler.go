@@ -14,12 +14,16 @@ func New(verbose bool) handler.GrpcHandler {
 }
 
 func (h *TextHandler) Handle(msg grpchelper.Message) (err error) {
-	if msg.Type == grpchelper.RequestType {
-		println(msg.Request.Payload.String())
-	} else if msg.Type == grpchelper.ResponseType {
-		println(msg.Response.Payload.String())
-	} else if msg.Type == grpchelper.HeaderType {
-		fmt.Printf("%+v\n", msg.Header.Payload)
+	// time, conn, streamid, data
+	switch msg.Type {
+	case grpchelper.RequestType:
+		fmt.Printf("%s\t%s\tstreamid:%d\treq:%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Request.String())
+	case grpchelper.ResponseType:
+		fmt.Printf("%s\t%s\tstreamid:%d\tresp:%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Response.String())
+	case grpchelper.HeaderType:
+		fmt.Printf("%s\t%s\tstreamid:%d\theader:%+v\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Header)
+	case grpchelper.UnknownType:
+		fmt.Printf("%s\t%s\tstreamid:%d\tunknown data frame\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Header)
 	}
 	return
 }

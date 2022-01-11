@@ -24,10 +24,6 @@ type Parser struct {
 	streams       map[ConnID]map[StreamID][]grpchelper.Message
 }
 
-type GrpcStreamMessage struct {
-	ConnID
-}
-
 func New(protoFilename string, guessPaths []string, autoGuess bool) (_ parser.Parser, err error) {
 	protoParser, err := grpchelper.NewProtoParser(protoFilename)
 	if err != nil {
@@ -60,12 +56,19 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 		}
 
 		streamID := frame.Header().StreamID
-		connID := getConnID(packet)
-		if _, ok := p.streams[connID]; !ok {
-			p.streams[connID] = make(map[StreamID][]grpchelper.Message)
+		var message grpchelper.Message = grpchelper.Message{
+			Meta: grpchelper.Meta{
+				CaptureInfo: packet.Metadata().CaptureInfo,
+				HTTP2Header: frame.Header(),
+				Src:         packet.NetworkLayer().NetworkFlow().Src().String(),
+				Dst:         packet.NetworkLayer().NetworkFlow().Src().String(),
+				Sport:       packet.TransportLayer().TransportFlow().Src().String(),
+				Dport:       packet.TransportLayer().TransportFlow().Dst().String(),
+			},
 		}
-
-		var message grpchelper.Message
+		if _, ok := p.streams[message.ConnID()]; !ok {
+			p.streams[message.ConnID()] = make(map[StreamID][]grpchelper.Message)
+		}
 		switch frame := frame.(type) {
 		case *http2.HeadersFrame:
 			payload := map[string]string{}
@@ -74,13 +77,8 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 				payload[field.Name] = field.Value
 			}
 
-			message = grpchelper.Message{
-				Type: grpchelper.HeaderType,
-				Header: grpchelper.Header{
-					HTTP2Header: frame.Header(),
-					Payload:     payload,
-				},
-			}
+			message.Type = grpchelper.HeaderType
+			message.Header = payload
 
 		case *http2.DataFrame:
 			var (
@@ -88,12 +86,12 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 				possiblePaths []string
 			)
 
-			for _, msg := range p.streams[connID][streamID] {
+			for _, msg := range p.streams[message.ConnID()][streamID] {
 				if msg.Type == grpchelper.HeaderType {
-					for key := range msg.Header.Payload {
+					for key := range msg.Header {
 						if key == ":path" {
 							possibleTypes = []grpchelper.Type{grpchelper.RequestType}
-							possiblePaths = []string{msg.Header.Payload[key]}
+							possiblePaths = []string{msg.Header[key]}
 						}
 						if key == ":status" {
 							possibleTypes = []grpchelper.Type{grpchelper.ResponseType}
@@ -106,12 +104,12 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 			responseStream := len(possibleTypes) == 1 && possibleTypes[0] == grpchelper.ResponseType
 			unknownStream := len(possibleTypes) == 0
 			if responseStream || unknownStream {
-				for _, msg := range p.streams[revConnID(connID)][streamID] {
+				for _, msg := range p.streams[message.RevConnID()][streamID] {
 					if msg.Type == grpchelper.HeaderType {
-						for key := range msg.Header.Payload {
+						for key := range msg.Header {
 							if key == ":path" {
 								possibleTypes = []grpchelper.Type{grpchelper.ResponseType}
-								possiblePaths = []string{msg.Header.Payload[key]}
+								possiblePaths = []string{msg.Header[key]}
 							}
 							if key == ":status" {
 								possibleTypes = []grpchelper.Type{grpchelper.RequestType}
@@ -141,53 +139,45 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 
 			switch len(msgs) {
 			case 1:
-				message = msgs[0]
+				msg := msgs[0]
+				message.Type = msg.Type
+				message.Request = msg.Request
+				message.Response = msg.Response
 			case 0:
-				println("unknown data frame")
-				continue
+				fallthrough
 			default:
 				curMax := 0
 				for _, msg := range msgs {
 					var n int
 					switch msg.Type {
 					case grpchelper.RequestType:
-						n = len(msg.Request.Payload.String())
+						n = len(msg.Request.String())
 					case grpchelper.ResponseType:
-						n = len(msg.Response.Payload.String())
+						n = len(msg.Response.String())
 					}
 					if n >= curMax {
 						curMax = n
-						message = msg
+						message.Type = msg.Type
+						message.Request = msg.Request
+						message.Response = msg.Response
 					}
 				}
 			}
 
+		default:
+			continue
 		}
-		p.streams[connID][streamID] = append(p.streams[connID][streamID], message)
+		p.streams[message.ConnID()][streamID] = append(p.streams[message.ConnID()][streamID], message)
 		messages = append(messages, message)
 	}
 	return messages, nil
 }
 
 func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, path string, frame *http2.DataFrame) (message grpchelper.Message, err error) {
-
+	message.Type = dataType
+	message.Response, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
 	if dataType == grpchelper.RequestType {
-		message = grpchelper.Message{
-			Type: grpchelper.RequestType,
-			Request: grpchelper.Request{
-				HTTP2Header: frame.Header(),
-			},
-		}
-		message.Request.Payload, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
-		return
+		message.Request, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
 	}
-
-	message = grpchelper.Message{
-		Type: grpchelper.ResponseType,
-		Response: grpchelper.Response{
-			HTTP2Header: frame.Header(),
-		},
-	}
-	message.Response.Payload, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
 	return
 }
