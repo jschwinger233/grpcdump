@@ -41,7 +41,7 @@ func main() {
 			return errors.New("provider not specified")
 		}
 
-		parser, err = grpcparser.New(args.ProtoFilename, args.GuessPaths)
+		parser, err = grpcparser.New(args.ProtoFilename, args.GuessPaths, args.AutoGuess)
 		if err != nil {
 			return
 		}

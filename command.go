@@ -32,6 +32,10 @@ var flags []cli.Flag = []cli.Flag{
 		Usage:    "rpc method to parse response frame whose request method is unknown; e.g. -m /pb.CoreRPC/WatchServiceStatus,/pb.CoreRPC/SetWorkloadsStatus",
 		Required: false,
 	},
+	&cli.BoolFlag{
+		Name:     "auto-guess",
+		Required: false,
+	},
 	&cli.StringFlag{
 		Name:        "output-format",
 		Aliases:     []string{"o"},
@@ -72,6 +76,7 @@ type Args struct {
 	// parser
 	ProtoFilename string
 	GuessPaths    []string
+	AutoGuess     bool
 
 	// outputter
 	OutputFormat
@@ -99,6 +104,7 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 	if args.GuessPaths[0] == "" {
 		args.GuessPaths = []string{}
 	}
+	args.AutoGuess = ctx.Bool("auto-guess")
 
 	switch ctx.String("output-format") {
 	case "text":

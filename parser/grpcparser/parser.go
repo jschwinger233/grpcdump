@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"strings"
 
 	"github.com/google/gopacket"
 	"github.com/jschwinger23/grpcdump/grpchelper"
@@ -18,34 +17,27 @@ type (
 )
 
 type Parser struct {
-	protoFilename               string
-	guessServices, guessMethods []string
-	protoParser                 grpchelper.ProtoParser
-	streams                     map[ConnID]map[StreamID][]grpchelper.Message
+	protoFilename string
+	guessPaths    []string
+	autoGuess     bool
+	protoParser   grpchelper.ProtoParser
+	streams       map[ConnID]map[StreamID][]grpchelper.Message
 }
 
 type GrpcStreamMessage struct {
 	ConnID
 }
 
-func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error) {
+func New(protoFilename string, guessPaths []string, autoGuess bool) (_ parser.Parser, err error) {
 	protoParser, err := grpchelper.NewProtoParser(protoFilename)
 	if err != nil {
 		return
 	}
 
-	var guessServices, guessMethods []string
-	if len(guessPaths) != 0 {
-		for _, guessPath := range guessPaths {
-			parts := strings.Split(guessPath, "/")
-			guessServices = append(guessServices, parts[len(parts)-2])
-			guessMethods = append(guessMethods, parts[len(parts)-1])
-		}
-	}
 	return &Parser{
 		protoFilename: protoFilename,
-		guessServices: guessServices,
-		guessMethods:  guessMethods,
+		guessPaths:    guessPaths,
+		autoGuess:     autoGuess,
 		protoParser:   protoParser,
 		streams:       map[ConnID]map[StreamID][]grpchelper.Message{},
 	}, nil
@@ -92,8 +84,8 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 
 		case *http2.DataFrame:
 			var (
-				possibleTypes                     []grpchelper.Type
-				possibleServices, possibleMethods []string
+				possibleTypes []grpchelper.Type
+				possiblePaths []string
 			)
 
 			for _, msg := range p.streams[connID][streamID] {
@@ -101,8 +93,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 					for key := range msg.Header.Payload {
 						if key == ":path" {
 							possibleTypes = []grpchelper.Type{grpchelper.RequestType}
-							parts := strings.Split(msg.Header.Payload[key], "/")
-							possibleServices, possibleMethods = []string{parts[1]}, []string{parts[2]}
+							possiblePaths = []string{msg.Header.Payload[key]}
 						}
 						if key == ":status" {
 							possibleTypes = []grpchelper.Type{grpchelper.ResponseType}
@@ -120,8 +111,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 						for key := range msg.Header.Payload {
 							if key == ":path" {
 								possibleTypes = []grpchelper.Type{grpchelper.ResponseType}
-								parts := strings.Split(msg.Header.Payload[key], "/")
-								possibleServices, possibleMethods = []string{parts[1]}, []string{parts[2]}
+								possiblePaths = []string{msg.Header.Payload[key]}
 							}
 							if key == ":status" {
 								possibleTypes = []grpchelper.Type{grpchelper.RequestType}
@@ -131,19 +121,18 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 				}
 			}
 
-			if len(possibleServices) == 0 || len(possibleMethods) == 0 {
-				if len(p.guessMethods) == 0 {
-					println("unknown data frame")
-					continue
+			if len(possiblePaths) == 0 {
+				possibleTypes = []grpchelper.Type{grpchelper.RequestType, grpchelper.ResponseType}
+				possiblePaths = p.guessPaths
+				if p.autoGuess {
+					possiblePaths = p.protoParser.GetAllPaths()
 				}
-				possibleServices, possibleMethods, possibleTypes = p.guessServices, p.guessMethods, []grpchelper.Type{grpchelper.RequestType, grpchelper.ResponseType}
 			}
 
 			msgs := []grpchelper.Message{}
-			for i, possibleMethod := range possibleMethods {
-				possibleService := possibleServices[i]
+			for _, possiblePath := range possiblePaths {
 				for _, possibleType := range possibleTypes {
-					msg, err := p.unmarshalDataFrame(possibleType, possibleService, possibleMethod, frame)
+					msg, err := p.unmarshalDataFrame(possibleType, possiblePath, frame)
 					if err == nil {
 						msgs = append(msgs, msg)
 					}
@@ -180,7 +169,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 	return messages, nil
 }
 
-func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, service, method string, frame *http2.DataFrame) (message grpchelper.Message, err error) {
+func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, path string, frame *http2.DataFrame) (message grpchelper.Message, err error) {
 
 	if dataType == grpchelper.RequestType {
 		message = grpchelper.Message{
@@ -189,7 +178,7 @@ func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, service, method st
 				HTTP2Header: frame.Header(),
 			},
 		}
-		message.Request.Payload, err = p.protoParser.MarshalRequest(service, method, frame.Data()[5:])
+		message.Request.Payload, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
 		return
 	}
 
@@ -199,6 +188,6 @@ func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, service, method st
 			HTTP2Header: frame.Header(),
 		},
 	}
-	message.Response.Payload, err = p.protoParser.MarshalResponse(service, method, frame.Data()[5:])
+	message.Response.Payload, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
 	return
 }

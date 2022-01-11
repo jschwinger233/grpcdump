@@ -10,24 +10,20 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 )
 
-type (
-	ServiceName = string
-	MethodName  = string
-)
-
 type ProtoParser interface {
-	MarshalRequest(service, method string, message []byte) (*dynamic.Message, error)
-	MarshalResponse(service, method string, message []byte) (*dynamic.Message, error)
+	MarshalRequest(path string, message []byte) (*dynamic.Message, error)
+	MarshalResponse(path string, message []byte) (*dynamic.Message, error)
+	GetAllPaths() []string
 }
 
 type parser struct {
-	Requests  map[ServiceName]map[MethodName]*desc.MessageDescriptor
-	Responses map[ServiceName]map[MethodName]*desc.MessageDescriptor
+	Requests  map[string]*desc.MessageDescriptor
+	Responses map[string]*desc.MessageDescriptor
 }
 
 func NewProtoParser(filename string) (_ ProtoParser, err error) {
-	requests := make(map[ServiceName]map[MethodName]*desc.MessageDescriptor)
-	response := make(map[ServiceName]map[MethodName]*desc.MessageDescriptor)
+	requests := make(map[string]*desc.MessageDescriptor)
+	response := make(map[string]*desc.MessageDescriptor)
 
 	if filename, err = filepath.Abs(filename); err != nil {
 		return
@@ -54,11 +50,10 @@ func NewProtoParser(filename string) (_ ProtoParser, err error) {
 	for _, parsedFile := range parsedFiles {
 		for _, service := range parsedFile.GetServices() {
 			serviceName := "pb." + service.GetName()
-			requests[serviceName] = make(map[MethodName]*desc.MessageDescriptor)
-			response[serviceName] = make(map[MethodName]*desc.MessageDescriptor)
 			for _, method := range service.GetMethods() {
-				requests[serviceName][method.GetName()] = method.GetInputType()
-				response[serviceName][method.GetName()] = method.GetOutputType()
+				path := fmt.Sprintf("/%s/%s", serviceName, method.GetName())
+				requests[path] = method.GetInputType()
+				response[path] = method.GetOutputType()
 			}
 		}
 	}
@@ -68,28 +63,27 @@ func NewProtoParser(filename string) (_ ProtoParser, err error) {
 	}, nil
 }
 
-func (p *parser) MarshalRequest(service, method string, message []byte) (*dynamic.Message, error) {
-	methods, ok := p.Requests[service]
+func (p *parser) MarshalRequest(path string, message []byte) (*dynamic.Message, error) {
+	descriptor, ok := p.Requests[path]
 	if !ok {
-		return nil, fmt.Errorf("service not found: %s", service)
-	}
-	descriptor, ok := methods[method]
-	if !ok {
-		return nil, fmt.Errorf("method not found: %s", method)
+		return nil, fmt.Errorf("path not found: %s", path)
 	}
 	msg := dynamic.NewMessage(descriptor)
 	return msg, msg.Unmarshal(message)
 }
 
-func (p *parser) MarshalResponse(service, method string, message []byte) (*dynamic.Message, error) {
-	methods, ok := p.Responses[service]
+func (p *parser) MarshalResponse(path string, message []byte) (*dynamic.Message, error) {
+	descriptor, ok := p.Responses[path]
 	if !ok {
-		return nil, fmt.Errorf("service not found: %s", service)
-	}
-	descriptor, ok := methods[method]
-	if !ok {
-		return nil, fmt.Errorf("method not found: %s", method)
+		return nil, fmt.Errorf("path not found: %s", path)
 	}
 	msg := dynamic.NewMessage(descriptor)
 	return msg, msg.Unmarshal(message)
+}
+
+func (p *parser) GetAllPaths() (paths []string) {
+	for path := range p.Requests {
+		paths = append(paths, path)
+	}
+	return
 }
