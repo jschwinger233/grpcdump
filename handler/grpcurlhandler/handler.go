@@ -2,6 +2,7 @@ package grpcurlhandler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/handler"
@@ -18,6 +19,11 @@ func (h *GrpcurlHandler) Handle(msg grpchelper.Message) (err error) {
 	switch msg.Type {
 	case grpchelper.RequestType:
 		// grpcurl -plaintext -proto rpc/gen/core.proto -d '{"appname":"zc","entrypoint":"zc"}' localhost:5001 pb.CoreRPC/WorkloadStatusStream
+		bytes, err := msg.Request.MarshalJSON()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("grpcurl -plaintext -proto $PROTO -d '%s' $HOST:$PORT %s\n", string(bytes), strings.TrimPrefix(msg.Ext[":path"], "/"))
 
 	case grpchelper.ResponseType:
 		fmt.Printf("%s\t%s\tstreamid:%d\tdata:%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Response.String())

@@ -146,10 +146,11 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 				message.Type = msg.Type
 				message.Request = msg.Request
 				message.Response = msg.Response
+				message.Ext = msg.Ext
 			case 0:
 				fallthrough
 			default:
-				curMax := 0
+				curMax := -1
 				for _, msg := range msgs {
 					var n int
 					switch msg.Type {
@@ -158,11 +159,12 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 					case grpchelper.ResponseType:
 						n = len(msg.Response.String())
 					}
-					if n >= curMax {
+					if n > curMax {
 						curMax = n
 						message.Type = msg.Type
 						message.Request = msg.Request
 						message.Response = msg.Response
+						message.Ext = msg.Ext
 					}
 				}
 			}
@@ -178,6 +180,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 
 func (p *Parser) unmarshalDataFrame(dataType grpchelper.Type, path string, frame *http2.DataFrame) (message grpchelper.Message, err error) {
 	message.Type = dataType
+	message.Ext = map[string]string{":path": path}
 	message.Response, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
 	if dataType == grpchelper.RequestType {
 		message.Request, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])

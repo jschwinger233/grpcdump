@@ -30,6 +30,8 @@ type Message struct {
 	Header   map[string]string
 	Request  *dynamic.Message
 	Response *dynamic.Message
+
+	Ext map[string]string
 }
 
 func (m Message) ConnID() string {
