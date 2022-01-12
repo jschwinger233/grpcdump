@@ -23,7 +23,7 @@ func (h *TextHandler) Handle(msg grpchelper.Message) (err error) {
 	case grpchelper.HeaderType:
 		fmt.Printf("%s\t%s\tstreamid:%d\theader:%+v\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Header)
 	case grpchelper.UnknownType:
-		fmt.Printf("%s\t%s\tstreamid:%d\tunknown data frame\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Header)
+		fmt.Printf("%s\t%s\tstreamid:%d\tunknown data frame\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID)
 	}
 	return
 }

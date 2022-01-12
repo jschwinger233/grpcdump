@@ -41,7 +41,7 @@ func main() {
 			return errors.New("provider not specified")
 		}
 
-		parser, err = grpcparser.New(args.ProtoFilename, args.GuessPaths, args.AutoGuess)
+		parser, err = grpcparser.New(args.ProtoFilename, args.GuessPaths)
 		if err != nil {
 			return
 		}
@@ -52,7 +52,7 @@ func main() {
 		case Json:
 			handler = jsonhandler.New()
 		case Grpcurl:
-			handler = grpcurlhandler.New()
+			handler = grpcurlhandler.New(args.ProtoFilename) // f-word
 		default:
 			return errors.New("output format not specified")
 		}

@@ -20,12 +20,11 @@ type (
 type Parser struct {
 	protoFilename string
 	guessPaths    []string
-	autoGuess     bool
 	protoParser   grpchelper.ProtoParser
 	streams       map[ConnID]map[StreamID][]grpchelper.Message
 }
 
-func New(protoFilename string, guessPaths []string, autoGuess bool) (_ parser.Parser, err error) {
+func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error) {
 	protoParser, err := grpchelper.NewProtoParser(protoFilename)
 	if err != nil {
 		return
@@ -34,7 +33,6 @@ func New(protoFilename string, guessPaths []string, autoGuess bool) (_ parser.Pa
 	return &Parser{
 		protoFilename: protoFilename,
 		guessPaths:    guessPaths,
-		autoGuess:     autoGuess,
 		protoParser:   protoParser,
 		streams:       map[ConnID]map[StreamID][]grpchelper.Message{},
 	}, nil
@@ -125,7 +123,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpchelper.Message, e
 			if len(possiblePaths) == 0 {
 				possibleTypes = []grpchelper.Type{grpchelper.RequestType, grpchelper.ResponseType}
 				possiblePaths = p.guessPaths
-				if p.autoGuess {
+				if len(possiblePaths) == 1 && possiblePaths[0] == "AUTO" {
 					possiblePaths = p.protoParser.GetAllPaths()
 				}
 			}

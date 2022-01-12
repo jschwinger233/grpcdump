@@ -8,10 +8,12 @@ import (
 	"github.com/jschwinger23/grpcdump/handler"
 )
 
-type GrpcurlHandler struct{}
+type GrpcurlHandler struct {
+	protoFilename string
+}
 
-func New() handler.GrpcHandler {
-	return &GrpcurlHandler{}
+func New(protoFilename string) handler.GrpcHandler {
+	return &GrpcurlHandler{protoFilename}
 }
 
 func (h *GrpcurlHandler) Handle(msg grpchelper.Message) (err error) {
@@ -23,7 +25,7 @@ func (h *GrpcurlHandler) Handle(msg grpchelper.Message) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("grpcurl -plaintext -proto $PROTO -d '%s' $HOST:$PORT %s\n", string(bytes), strings.TrimPrefix(msg.Ext[":path"], "/"))
+		fmt.Printf("grpcurl -plaintext -proto %s -d '%s' %s:%d %s\n", h.protoFilename, string(bytes), msg.Dst, msg.Dport, strings.TrimPrefix(msg.Ext[":path"], "/"))
 
 	case grpchelper.ResponseType:
 		fmt.Printf("%s\t%s\tstreamid:%d\tdata:%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, msg.Response.String())
