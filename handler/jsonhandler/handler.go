@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jschwinger23/grpcdump/grpchelper"
+	grpc "github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/handler"
 )
 
@@ -16,17 +16,18 @@ func New() handler.GrpcHandler {
 }
 
 type Output struct {
-	Time     time.Time   `json:"time"`
-	Src      string      `json:"src"`
-	Dst      string      `json:"dst"`
-	Sport    int         `json:"sport"`
-	Dport    int         `json:"dport"`
-	StreamID uint32      `json:"stream_id"`
-	Type     string      `json:"type"`
-	Payload  interface{} `json:"payload"`
+	Time     time.Time              `json:"time"`
+	Src      string                 `json:"src"`
+	Dst      string                 `json:"dst"`
+	Sport    int                    `json:"sport"`
+	Dport    int                    `json:"dport"`
+	StreamID uint32                 `json:"stream_id"`
+	Type     string                 `json:"type"`
+	Payload  interface{}            `json:"payload"`
+	Ext      map[grpc.ExtKey]string `json:"ext"`
 }
 
-func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
+func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
 	var bytes []byte
 	o := Output{
 		Time:     msg.CaptureInfo.Timestamp,
@@ -35,9 +36,10 @@ func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
 		Sport:    msg.Sport,
 		Dport:    msg.Dport,
 		StreamID: msg.HTTP2Header.StreamID,
+		Ext:      msg.Ext,
 	}
 	switch msg.Type {
-	case grpchelper.RequestType:
+	case grpc.RequestType:
 		o.Type = "Data"
 		if bytes, err = msg.Response.MarshalJSON(); err != nil {
 			return
@@ -45,7 +47,7 @@ func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
 		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
 			return
 		}
-	case grpchelper.ResponseType:
+	case grpc.ResponseType:
 		o.Type = "Data"
 		if bytes, err = msg.Response.MarshalJSON(); err != nil {
 			return
@@ -53,7 +55,7 @@ func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
 		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
 			return
 		}
-	case grpchelper.HeaderType:
+	case grpc.HeaderType:
 		o.Type = "Header"
 		if bytes, err = json.Marshal(msg.Header); err != nil {
 			return
@@ -61,7 +63,7 @@ func (h *JsonHandler) Handle(msg grpchelper.Message) (err error) {
 		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
 			return
 		}
-	case grpchelper.UnknownType:
+	case grpc.UnknownType:
 		o.Type = "Unknown"
 		o.Payload = "unknown data frame"
 	}

@@ -24,6 +24,14 @@ type Meta struct {
 	HTTP2Header  http2.FrameHeader
 }
 
+type ExtKey string
+
+const (
+	HeaderPartiallyParsed ExtKey = "partial_header"
+	DataGuessed           ExtKey = "data_guessed"
+	DataPath              ExtKey = "data_path"
+)
+
 type Message struct {
 	Meta
 	Type
@@ -31,7 +39,7 @@ type Message struct {
 	Request  *dynamic.Message
 	Response *dynamic.Message
 
-	Ext map[string]string
+	Ext map[ExtKey]string
 }
 
 func (m Message) ConnID() string {
@@ -40,4 +48,12 @@ func (m Message) ConnID() string {
 
 func (m Message) RevConnID() string {
 	return fmt.Sprintf("%s:%d->%s:%d", m.Dst, m.Dport, m.Src, m.Sport)
+}
+
+func (m Message) UniqConnID() string {
+	connID, revConnID := m.ConnID(), m.RevConnID()
+	if connID < revConnID {
+		return connID
+	}
+	return revConnID
 }
