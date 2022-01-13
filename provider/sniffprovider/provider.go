@@ -40,19 +40,23 @@ func (p *SniffProvider) PacketStream() (_ <-chan gopacket.Packet, err error) {
 	err = handler.SetBPF(makeBPFFilter(p.Port))
 	packetSource := gopacket.NewPacketSource(handler, layers.LayerTypeEthernet)
 	ch := make(chan gopacket.Packet)
+	// remove dup packet: https://github.com/google/gopacket/issues/917
 	go func() {
 		defer close(ch)
-		var lastId *uint16
+		var lastIp *layers.IPv4
 		for packet := range packetSource.Packets() {
 			ipLayer := packet.Layer(layers.LayerTypeIPv4)
 			if ipLayer == nil {
 				continue
 			}
 			ip, _ := ipLayer.(*layers.IPv4)
-			if lastId != nil && *lastId == ip.Id {
+			if lastIp != nil &&
+				lastIp.SrcIP.String() == ip.SrcIP.String() &&
+				lastIp.DstIP.String() == ip.DstIP.String() &&
+				lastIp.Id == ip.Id {
 				continue
 			}
-			lastId = &ip.Id
+			lastIp = ip
 			ch <- packet
 		}
 	}()

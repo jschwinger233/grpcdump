@@ -18,6 +18,7 @@ const (
 )
 
 type Meta struct {
+	PacketNumber int
 	gopacket.CaptureInfo
 	Src, Dst     string
 	Sport, Dport int

@@ -22,6 +22,7 @@ type Parser struct {
 	guessPaths    []string
 	protoParser   grpc.ProtoParser
 	streams       map[ConnID]map[StreamID][]grpc.Message
+	packetCount   int
 }
 
 func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error) {
@@ -39,6 +40,7 @@ func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error)
 }
 
 func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err error) {
+	p.packetCount++
 	appLayer := packet.ApplicationLayer()
 	if appLayer == nil {
 		return
@@ -59,12 +61,13 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 		dport, _ := strconv.Atoi(packet.TransportLayer().TransportFlow().Dst().String())
 		var message grpc.Message = grpc.Message{
 			Meta: grpc.Meta{
-				CaptureInfo: packet.Metadata().CaptureInfo,
-				HTTP2Header: frame.Header(),
-				Src:         packet.NetworkLayer().NetworkFlow().Src().String(),
-				Dst:         packet.NetworkLayer().NetworkFlow().Src().String(),
-				Sport:       sport,
-				Dport:       dport,
+				PacketNumber: p.packetCount,
+				CaptureInfo:  packet.Metadata().CaptureInfo,
+				HTTP2Header:  frame.Header(),
+				Src:          packet.NetworkLayer().NetworkFlow().Src().String(),
+				Dst:          packet.NetworkLayer().NetworkFlow().Src().String(),
+				Sport:        sport,
+				Dport:        dport,
 			},
 			Ext: make(map[grpc.ExtKey]string),
 		}

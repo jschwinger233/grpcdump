@@ -2,6 +2,7 @@ package texthandler
 
 import (
 	"fmt"
+	"time"
 
 	grpc "github.com/jschwinger23/grpcdump/grpchelper"
 	"github.com/jschwinger23/grpcdump/handler"
@@ -22,24 +23,54 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 		if _, ok := msg.Ext[grpc.DataGuessed]; ok {
 			guessIndicator = "(guess)"
 		}
-		fmt.Printf("%s\t%s\tstreamid:%d\tdata:%s%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, guessIndicator, msg.Request.String())
+		fmt.Printf(
+			"%s\t%s\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
+			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
+			msg.ConnID(),
+			msg.PacketNumber,
+			msg.HTTP2Header.StreamID,
+			guessIndicator,
+			msg.Request.String(),
+		)
 
 	case grpc.ResponseType:
 		guessIndicator := ""
 		if _, ok := msg.Ext[grpc.DataGuessed]; ok {
 			guessIndicator = "(guess)"
 		}
-		fmt.Printf("%s\t%s\tstreamid:%d\tdata:%s%s\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, guessIndicator, msg.Response.String())
+		fmt.Printf(
+			"%s\t%s\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
+			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
+			msg.ConnID(),
+			msg.PacketNumber,
+			msg.HTTP2Header.StreamID,
+			guessIndicator,
+			msg.Response.String(),
+		)
 
 	case grpc.HeaderType:
 		partialIndicator := ""
 		if _, ok := msg.Ext[grpc.HeaderPartiallyParsed]; ok {
 			partialIndicator = "(partial)"
 		}
-		fmt.Printf("%s\t%s\tstreamid:%d\theader:%s%+v\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID, partialIndicator, msg.Header)
+		fmt.Printf(
+			"%s\t%s\tpacketno:%d\tstreamid:%d\theader:%s%+v\n",
+			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
+			msg.ConnID(),
+			msg.PacketNumber,
+			msg.HTTP2Header.StreamID,
+			partialIndicator,
+			msg.Header,
+		)
 
 	case grpc.UnknownType:
-		fmt.Printf("%s\t%s\tstreamid:%d\tunknown data frame\n", msg.CaptureInfo.Timestamp, msg.ConnID(), msg.HTTP2Header.StreamID)
+		fmt.Printf(
+			"%s\t%s\tpacketno:%d\tstreamid:%d\tunknown data frame\n",
+			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
+			msg.ConnID(),
+			msg.PacketNumber,
+			msg.HTTP2Header.StreamID,
+		)
 	}
 	return
 }

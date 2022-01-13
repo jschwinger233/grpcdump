@@ -16,27 +16,29 @@ func New() handler.GrpcHandler {
 }
 
 type Output struct {
-	Time     time.Time              `json:"time"`
-	Src      string                 `json:"src"`
-	Dst      string                 `json:"dst"`
-	Sport    int                    `json:"sport"`
-	Dport    int                    `json:"dport"`
-	StreamID uint32                 `json:"stream_id"`
-	Type     string                 `json:"type"`
-	Payload  interface{}            `json:"payload"`
-	Ext      map[grpc.ExtKey]string `json:"ext"`
+	Time         time.Time              `json:"time"`
+	PacketNumber int                    `json:"packet_number"`
+	Src          string                 `json:"src"`
+	Dst          string                 `json:"dst"`
+	Sport        int                    `json:"sport"`
+	Dport        int                    `json:"dport"`
+	StreamID     uint32                 `json:"stream_id"`
+	Type         string                 `json:"type"`
+	Payload      interface{}            `json:"payload"`
+	Ext          map[grpc.ExtKey]string `json:"ext"`
 }
 
 func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
 	var bytes []byte
 	o := Output{
-		Time:     msg.CaptureInfo.Timestamp,
-		Src:      msg.Src,
-		Dst:      msg.Dst,
-		Sport:    msg.Sport,
-		Dport:    msg.Dport,
-		StreamID: msg.HTTP2Header.StreamID,
-		Ext:      msg.Ext,
+		Time:         msg.CaptureInfo.Timestamp,
+		PacketNumber: msg.PacketNumber,
+		Src:          msg.Src,
+		Dst:          msg.Dst,
+		Sport:        msg.Sport,
+		Dport:        msg.Dport,
+		StreamID:     msg.HTTP2Header.StreamID,
+		Ext:          msg.Ext,
 	}
 	switch msg.Type {
 	case grpc.RequestType:
