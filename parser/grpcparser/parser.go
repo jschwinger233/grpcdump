@@ -77,7 +77,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 		switch frame := frame.(type) {
 		case *http2.HeadersFrame:
 			payload := map[string]string{}
-			headerFields, err := hpackDecode(message.UniqConnID(), frame)
+			headerFields, err := hpackDecode(message.ConnID(), frame)
 			if err == nil {
 				for _, field := range headerFields {
 					payload[field.Name] = field.Value

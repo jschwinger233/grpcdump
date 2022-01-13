@@ -50,11 +50,3 @@ func (m Message) ConnID() string {
 func (m Message) RevConnID() string {
 	return fmt.Sprintf("%s:%d->%s:%d", m.Dst, m.Dport, m.Src, m.Sport)
 }
-
-func (m Message) UniqConnID() string {
-	connID, revConnID := m.ConnID(), m.RevConnID()
-	if connID < revConnID {
-		return connID
-	}
-	return revConnID
-}
