@@ -2,16 +2,23 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	cli "github.com/urfave/cli/v2"
 )
 
 var flags []cli.Flag = []cli.Flag{
+	&cli.IntFlag{
+		Name:     "service-port",
+		Aliases:  []string{"p"},
+		Usage:    "grpc service port; e.g. -p 2379",
+		Required: true,
+	},
 	&cli.StringFlag{
-		Name:     "sniff-target",
+		Name:     "interface",
 		Aliases:  []string{"i"},
-		Usage:    "interface and port to sniff, incompatible with -r; e.g. -i eth0:2379",
+		Usage:    "listen on interface; e.g. -i eth0",
 		Required: false,
 	},
 	&cli.StringFlag{
@@ -64,6 +71,7 @@ type Args struct {
 	Source string
 
 	// parser
+	ServicePort   int
 	ProtoFilename string
 	GuessPaths    []string
 
@@ -74,9 +82,11 @@ type Args struct {
 func newArgs(ctx *cli.Context) (args *Args, err error) {
 	args = &Args{}
 
-	if sniffTarget := ctx.String("sniff-target"); sniffTarget != "" {
+	args.ServicePort = ctx.Int("service-port")
+
+	if iface := ctx.String("interface"); iface != "" {
 		args.ProvideMethod = BySniff
-		args.Source = sniffTarget
+		args.Source = fmt.Sprintf("%s:%d", iface, args.ServicePort)
 	}
 
 	if pcapFilename := ctx.String("read-file"); pcapFilename != "" {

@@ -19,13 +19,14 @@ type (
 
 type Parser struct {
 	protoFilename string
+	servicePort   int
 	guessPaths    []string
 	protoParser   grpc.ProtoParser
 	streams       map[ConnID]map[StreamID][]grpc.Message
 	packetCount   int
 }
 
-func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error) {
+func New(protoFilename string, servicePort int, guessPaths []string) (_ parser.Parser, err error) {
 	protoParser, err := grpc.NewProtoParser(protoFilename)
 	if err != nil {
 		return
@@ -33,6 +34,7 @@ func New(protoFilename string, guessPaths []string) (_ parser.Parser, err error)
 
 	return &Parser{
 		protoFilename: protoFilename,
+		servicePort:   servicePort,
 		guessPaths:    guessPaths,
 		protoParser:   protoParser,
 		streams:       map[ConnID]map[StreamID][]grpc.Message{},
@@ -95,37 +97,32 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 		case *http2.DataFrame:
 			var (
-				possibleTypes []grpc.Type
+				dataType      grpc.Type
 				possiblePaths []string
 			)
+
+			dataType = grpc.RequestType
+			if p.servicePort == message.Sport {
+				dataType = grpc.ResponseType
+			}
 
 			for _, msg := range p.streams[message.ConnID()][streamID] {
 				if msg.Type == grpc.HeaderType {
 					for key := range msg.Header {
 						if key == ":path" {
-							possibleTypes = []grpc.Type{grpc.RequestType}
 							possiblePaths = []string{msg.Header[key]}
-						}
-						if key == ":status" {
-							possibleTypes = []grpc.Type{grpc.ResponseType}
 						}
 					}
 				}
 			}
 
 			// search opposite flow
-			responseStream := len(possibleTypes) == 1 && possibleTypes[0] == grpc.ResponseType
-			unknownStream := len(possibleTypes) == 0
-			if responseStream || unknownStream {
+			if dataType == grpc.ResponseType {
 				for _, msg := range p.streams[message.RevConnID()][streamID] {
 					if msg.Type == grpc.HeaderType {
 						for key := range msg.Header {
 							if key == ":path" {
-								possibleTypes = []grpc.Type{grpc.ResponseType}
 								possiblePaths = []string{msg.Header[key]}
-							}
-							if key == ":status" {
-								possibleTypes = []grpc.Type{grpc.RequestType}
 							}
 						}
 					}
@@ -134,7 +131,6 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 			if len(possiblePaths) == 0 {
 				message.Ext[grpc.DataGuessed] = ""
-				possibleTypes = []grpc.Type{grpc.RequestType, grpc.ResponseType}
 				possiblePaths = p.guessPaths
 				if len(possiblePaths) == 1 && possiblePaths[0] == "AUTO" {
 					possiblePaths = p.protoParser.GetAllPaths()
@@ -143,11 +139,9 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 			msgs := []grpc.Message{}
 			for _, possiblePath := range possiblePaths {
-				for _, possibleType := range possibleTypes {
-					msg, err := p.unmarshalDataFrame(possibleType, possiblePath, frame)
-					if err == nil {
-						msgs = append(msgs, msg)
-					}
+				msg, err := p.unmarshalDataFrame(dataType, possiblePath, frame)
+				if err == nil {
+					msgs = append(msgs, msg)
 				}
 			}
 
