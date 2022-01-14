@@ -11,10 +11,8 @@ import (
 type Type int
 
 const (
-	UnknownType Type = iota
-	HeaderType
-	RequestType
-	ResponseType
+	HeaderType Type = iota
+	DataType
 )
 
 type Meta struct {
@@ -36,9 +34,8 @@ const (
 type Message struct {
 	Meta
 	Type
-	Header   map[string]string
-	Request  *dynamic.Message
-	Response *dynamic.Message
+	Header map[string]string
+	Data   *dynamic.Message
 
 	Ext map[ExtKey]string
 }

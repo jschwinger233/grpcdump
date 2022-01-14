@@ -41,22 +41,19 @@ func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
 		Ext:          msg.Ext,
 	}
 	switch msg.Type {
-	case grpc.RequestType:
+
+	case grpc.DataType:
 		o.Type = "Data"
-		if bytes, err = msg.Response.MarshalJSON(); err != nil {
-			return
+		o.Payload = "unknown"
+		if msg.Data != nil {
+			if bytes, err = msg.Data.MarshalJSON(); err != nil {
+				return
+			}
+			if err = json.Unmarshal(bytes, &o.Payload); err != nil {
+				return
+			}
 		}
-		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
-			return
-		}
-	case grpc.ResponseType:
-		o.Type = "Data"
-		if bytes, err = msg.Response.MarshalJSON(); err != nil {
-			return
-		}
-		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
-			return
-		}
+
 	case grpc.HeaderType:
 		o.Type = "Header"
 		if bytes, err = json.Marshal(msg.Header); err != nil {
@@ -65,10 +62,8 @@ func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
 		if err = json.Unmarshal(bytes, &o.Payload); err != nil {
 			return
 		}
-	case grpc.UnknownType:
-		o.Type = "Unknown"
-		o.Payload = "unknown data frame"
 	}
+
 	if bytes, err = json.Marshal(o); err != nil {
 		return
 	}

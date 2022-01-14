@@ -18,25 +18,18 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 	// time, conn, streamid, data
 	switch msg.Type {
 
-	case grpc.RequestType:
-		guessIndicator := ""
+	case grpc.DataType:
+		var indicator, data string
 		if _, ok := msg.Ext[grpc.DataGuessed]; ok {
-			guessIndicator = "(guess)"
+			indicator = "(guess)"
 		}
-		fmt.Printf(
-			"%s\t%s\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
-			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
-			msg.ConnID(),
-			msg.PacketNumber,
-			msg.HTTP2Header.StreamID,
-			guessIndicator,
-			msg.Request.String(),
-		)
+		if msg.Data == nil {
+			indicator = "(unknown)"
+		}
 
-	case grpc.ResponseType:
-		guessIndicator := ""
-		if _, ok := msg.Ext[grpc.DataGuessed]; ok {
-			guessIndicator = "(guess)"
+		data = ""
+		if msg.Data != nil {
+			data = msg.Data.String()
 		}
 		fmt.Printf(
 			"%s\t%s\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
@@ -44,8 +37,8 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 			msg.ConnID(),
 			msg.PacketNumber,
 			msg.HTTP2Header.StreamID,
-			guessIndicator,
-			msg.Response.String(),
+			indicator,
+			data,
 		)
 
 	case grpc.HeaderType:
@@ -61,15 +54,6 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 			msg.HTTP2Header.StreamID,
 			partialIndicator,
 			msg.Header,
-		)
-
-	case grpc.UnknownType:
-		fmt.Printf(
-			"%s\t%s\tpacketno:%d\tstreamid:%d\tunknown data frame\n",
-			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
-			msg.ConnID(),
-			msg.PacketNumber,
-			msg.HTTP2Header.StreamID,
 		)
 	}
 	return

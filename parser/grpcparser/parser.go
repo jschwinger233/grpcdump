@@ -13,8 +13,14 @@ import (
 )
 
 type (
-	StreamID = uint32
-	ConnID   = string
+	StreamID      = uint32
+	ConnID        = string
+	DataDirection int
+)
+
+const (
+	ToService DataDirection = iota
+	ToClient
 )
 
 type Parser struct {
@@ -97,33 +103,24 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 		case *http2.DataFrame:
 			var (
-				dataType      grpc.Type
+				dataDirection DataDirection
 				possiblePaths []string
 			)
 
-			dataType = grpc.RequestType
-			if p.servicePort == message.Sport {
-				dataType = grpc.ResponseType
+			dataDirection = ToClient
+			if p.servicePort == message.Dport {
+				dataDirection = ToService
 			}
 
-			for _, msg := range p.streams[message.ConnID()][streamID] {
+			searchStream := p.streams[message.ConnID()][streamID]
+			if dataDirection == ToClient {
+				searchStream = p.streams[message.RevConnID()][streamID]
+			}
+			for _, msg := range searchStream {
 				if msg.Type == grpc.HeaderType {
 					for key := range msg.Header {
 						if key == ":path" {
 							possiblePaths = []string{msg.Header[key]}
-						}
-					}
-				}
-			}
-
-			// search opposite flow
-			if dataType == grpc.ResponseType {
-				for _, msg := range p.streams[message.RevConnID()][streamID] {
-					if msg.Type == grpc.HeaderType {
-						for key := range msg.Header {
-							if key == ":path" {
-								possiblePaths = []string{msg.Header[key]}
-							}
 						}
 					}
 				}
@@ -139,7 +136,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 			msgs := []grpc.Message{}
 			for _, possiblePath := range possiblePaths {
-				msg, err := p.unmarshalDataFrame(dataType, possiblePath, frame)
+				msg, err := p.unmarshalDataFrame(dataDirection, possiblePath, frame)
 				if err == nil {
 					msgs = append(msgs, msg)
 				}
@@ -150,19 +147,16 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 			for _, m := range msgs {
 				var n int
 				switch m.Type {
-				case grpc.RequestType:
-					n = len(m.Request.String())
-				case grpc.ResponseType:
-					n = len(m.Response.String())
+				case grpc.DataType:
+					n = len(m.Data.String())
 				}
 				if n > curMax {
 					curMax = n
 					msg = m
 				}
 			}
-			message.Type = msg.Type
-			message.Request = msg.Request
-			message.Response = msg.Response
+			message.Type = grpc.DataType
+			message.Data = msg.Data
 			for k, v := range msg.Ext {
 				message.Ext[k] = v
 			}
@@ -176,12 +170,11 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 	return messages, nil
 }
 
-func (p *Parser) unmarshalDataFrame(dataType grpc.Type, path string, frame *http2.DataFrame) (message grpc.Message, err error) {
-	message.Type = dataType
+func (p *Parser) unmarshalDataFrame(dataDirection DataDirection, path string, frame *http2.DataFrame) (message grpc.Message, err error) {
 	message.Ext = map[grpc.ExtKey]string{grpc.DataPath: path}
-	message.Response, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
-	if dataType == grpc.RequestType {
-		message.Request, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
+	message.Data, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
+	if dataDirection == ToService {
+		message.Data, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
 	}
 	return
 }
