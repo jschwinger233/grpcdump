@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jschwinger23/grpcdump/provider"
 	"github.com/jschwinger23/grpcdump/provider/pcaprovider"
 	"github.com/jschwinger23/grpcdump/provider/sniffprovider"
+	"github.com/jschwinger23/grpcdump/version"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -24,8 +26,13 @@ func main() {
 		handler  handler.GrpcHandler
 	)
 
+	cli.VersionPrinter = func(c *cli.Context) {
+		fmt.Println(version.Version())
+	}
+
 	app := cli.NewApp()
 	app.Flags = flags
+	app.Version = "."
 	app.Before = func(ctx *cli.Context) (err error) {
 		args, err := newArgs(ctx)
 		if err != nil {
