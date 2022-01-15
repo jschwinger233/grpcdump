@@ -13,14 +13,8 @@ import (
 )
 
 type (
-	StreamID      = uint32
-	ConnID        = string
-	DataDirection int
-)
-
-const (
-	ToService DataDirection = iota
-	ToClient
+	StreamID = uint32
+	ConnID   = string
 )
 
 type Parser struct {
@@ -73,7 +67,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 				CaptureInfo:  packet.Metadata().CaptureInfo,
 				HTTP2Header:  frame.Header(),
 				Src:          packet.NetworkLayer().NetworkFlow().Src().String(),
-				Dst:          packet.NetworkLayer().NetworkFlow().Src().String(),
+				Dst:          packet.NetworkLayer().NetworkFlow().Dst().String(),
 				Sport:        sport,
 				Dport:        dport,
 			},
@@ -102,18 +96,15 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 			message.Header = payload
 
 		case *http2.DataFrame:
-			var (
-				dataDirection DataDirection
-				possiblePaths []string
-			)
+			var possiblePaths []string
 
-			dataDirection = ToClient
+			message.Ext[grpc.DataDirection] = grpc.S2C
 			if p.servicePort == message.Dport {
-				dataDirection = ToService
+				message.Ext[grpc.DataDirection] = grpc.C2S
 			}
 
 			searchStream := p.streams[message.ConnID()][streamID]
-			if dataDirection == ToClient {
+			if message.Ext[grpc.DataDirection] == grpc.S2C {
 				searchStream = p.streams[message.RevConnID()][streamID]
 			}
 			for _, msg := range searchStream {
@@ -136,7 +127,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 			msgs := []grpc.Message{}
 			for _, possiblePath := range possiblePaths {
-				msg, err := p.unmarshalDataFrame(dataDirection, possiblePath, frame)
+				msg, err := p.unmarshalDataFrame(message.Ext[grpc.DataDirection], possiblePath, frame)
 				if err == nil {
 					msgs = append(msgs, msg)
 				}
@@ -145,11 +136,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 			var msg grpc.Message
 			curMax := -1
 			for _, m := range msgs {
-				var n int
-				switch m.Type {
-				case grpc.DataType:
-					n = len(m.Data.String())
-				}
+				n := len(m.Data.String())
 				if n > curMax {
 					curMax = n
 					msg = m
@@ -170,10 +157,10 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 	return messages, nil
 }
 
-func (p *Parser) unmarshalDataFrame(dataDirection DataDirection, path string, frame *http2.DataFrame) (message grpc.Message, err error) {
+func (p *Parser) unmarshalDataFrame(dataDirection string, path string, frame *http2.DataFrame) (message grpc.Message, err error) {
 	message.Ext = map[grpc.ExtKey]string{grpc.DataPath: path}
 	message.Data, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
-	if dataDirection == ToService {
+	if dataDirection == grpc.C2S {
 		message.Data, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
 	}
 	return

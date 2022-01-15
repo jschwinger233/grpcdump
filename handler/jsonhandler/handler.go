@@ -3,16 +3,22 @@ package jsonhandler
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	grpc "github.com/jschwinger23/grpcdump/grpchelper"
+	"github.com/jschwinger23/grpcdump/grpchelper/grpcurl"
 	"github.com/jschwinger23/grpcdump/handler"
 )
 
-type JsonHandler struct{}
+type JsonHandler struct {
+	grpcurlManager *grpcurl.Manager
+}
 
-func New() handler.GrpcHandler {
-	return &JsonHandler{}
+func New(grpcurlManager *grpcurl.Manager) handler.GrpcHandler {
+	return &JsonHandler{
+		grpcurlManager: grpcurlManager,
+	}
 }
 
 type Output struct {
@@ -26,6 +32,7 @@ type Output struct {
 	Type         string                 `json:"type"`
 	Payload      interface{}            `json:"payload"`
 	Ext          map[grpc.ExtKey]string `json:"ext"`
+	Grpcurl      string                 `json:"grpcurl,omitempty"`
 }
 
 func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
@@ -52,6 +59,19 @@ func (h *JsonHandler) Handle(msg grpc.Message) (err error) {
 			if err = json.Unmarshal(bytes, &o.Payload); err != nil {
 				return
 			}
+		}
+
+		if h.grpcurlManager != nil && msg.Ext[grpc.DataDirection] == grpc.C2S {
+			cmd, err := h.grpcurlManager.Render(grpcurl.RenderContext{
+				Payload: msg.Data,
+				Dst:     msg.Dst,
+				Dport:   msg.Dport,
+				Path:    strings.TrimPrefix(msg.Ext[grpc.DataPath], "/"),
+			})
+			if err != nil {
+				return err
+			}
+			o.Grpcurl = cmd
 		}
 
 	case grpc.HeaderType:

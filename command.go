@@ -43,8 +43,12 @@ var flags []cli.Flag = []cli.Flag{
 		Name:        "output-format",
 		Aliases:     []string{"o"},
 		DefaultText: "text",
-		Usage:       "output format including 'text', 'json', 'grpcurl'",
+		Usage:       "output format including 'text', 'json'",
 		Required:    false,
+	},
+	&cli.BoolFlag{
+		Name:  "with-grpcurl",
+		Usage: "output request data with corresponding grpcurl",
 	},
 }
 
@@ -77,6 +81,7 @@ type Args struct {
 
 	// outputter
 	OutputFormat
+	WithGrpcurl bool
 }
 
 func newArgs(ctx *cli.Context) (args *Args, err error) {
@@ -108,11 +113,11 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 		args.OutputFormat = Text
 	case "json":
 		args.OutputFormat = Json
-	case "grpcurl":
-		args.OutputFormat = Grpcurl
 	default:
 		args.OutputFormat = Text
 	}
+
+	args.WithGrpcurl = ctx.Bool("with-grpcurl")
 
 	return args, args.Validate()
 }

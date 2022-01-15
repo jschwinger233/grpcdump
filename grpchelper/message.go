@@ -26,9 +26,13 @@ type Meta struct {
 type ExtKey string
 
 const (
-	HeaderPartiallyParsed ExtKey = "partial_header"
+	HeaderPartiallyParsed ExtKey = "header_partial"
+	DataDirection         ExtKey = "data_direction"
 	DataGuessed           ExtKey = "data_guessed"
 	DataPath              ExtKey = "data_path"
+
+	C2S string = "client_to_service"
+	S2C string = "service_to_client"
 )
 
 type Message struct {

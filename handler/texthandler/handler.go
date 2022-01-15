@@ -2,24 +2,30 @@ package texthandler
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	grpc "github.com/jschwinger23/grpcdump/grpchelper"
+	"github.com/jschwinger23/grpcdump/grpchelper/grpcurl"
 	"github.com/jschwinger23/grpcdump/handler"
 )
 
-type TextHandler struct{}
+type TextHandler struct {
+	grpcurlManager *grpcurl.Manager
+}
 
-func New() handler.GrpcHandler {
-	return &TextHandler{}
+func New(grpcurlManager *grpcurl.Manager) handler.GrpcHandler {
+	return &TextHandler{
+		grpcurlManager: grpcurlManager,
+	}
 }
 
 func (h *TextHandler) Handle(msg grpc.Message) (err error) {
-	// time, conn, streamid, data
 	switch msg.Type {
 
 	case grpc.DataType:
 		var indicator, data string
+
 		if _, ok := msg.Ext[grpc.DataGuessed]; ok {
 			indicator = "(guess)"
 		}
@@ -40,6 +46,19 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 			indicator,
 			data,
 		)
+
+		if h.grpcurlManager != nil && msg.Ext[grpc.DataDirection] == grpc.C2S {
+			cmd, err := h.grpcurlManager.Render(grpcurl.RenderContext{
+				Payload: msg.Data,
+				Dst:     msg.Dst,
+				Dport:   msg.Dport,
+				Path:    strings.TrimPrefix(msg.Ext[grpc.DataPath], "/"),
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Println(cmd)
+		}
 
 	case grpc.HeaderType:
 		partialIndicator := ""

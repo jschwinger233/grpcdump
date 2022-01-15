@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/jschwinger23/grpcdump/grpchelper/grpcurl"
 	"github.com/jschwinger23/grpcdump/handler"
-	"github.com/jschwinger23/grpcdump/handler/grpcurlhandler"
 	"github.com/jschwinger23/grpcdump/handler/jsonhandler"
 	"github.com/jschwinger23/grpcdump/handler/texthandler"
 	"github.com/jschwinger23/grpcdump/parser"
@@ -46,13 +46,16 @@ func main() {
 			return
 		}
 
+		var grpcurlManager *grpcurl.Manager
+		if args.WithGrpcurl {
+			grpcurlManager = grpcurl.New(args.ProtoFilename)
+		}
+
 		switch args.OutputFormat {
 		case Text:
-			handler = texthandler.New()
+			handler = texthandler.New(grpcurlManager)
 		case Json:
-			handler = jsonhandler.New()
-		case Grpcurl:
-			handler = grpcurlhandler.New(args.ProtoFilename) // f-word
+			handler = jsonhandler.New(grpcurlManager)
 		default:
 			return errors.New("output format not specified")
 		}

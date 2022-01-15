@@ -49,7 +49,7 @@ func NewProtoParser(filename string) (_ ProtoParser, err error) {
 
 	for _, parsedFile := range parsedFiles {
 		for _, service := range parsedFile.GetServices() {
-			serviceName := "pb." + service.GetName()
+			serviceName := fmt.Sprintf("%s.%s", parsedFile.GetPackage(), service.GetName())
 			for _, method := range service.GetMethods() {
 				path := fmt.Sprintf("/%s/%s", serviceName, method.GetName())
 				requests[path] = method.GetInputType()
