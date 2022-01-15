@@ -32,7 +32,8 @@ func main() {
 
 	app := cli.NewApp()
 	app.Flags = flags
-	app.Version = "."
+	app.Usage = "A tool to sniff and decode gRPC frames"
+	app.Version = "--version/-v"
 	app.Before = func(ctx *cli.Context) (err error) {
 		args, err := newArgs(ctx)
 		if err != nil {
