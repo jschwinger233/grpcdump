@@ -167,7 +167,7 @@ Why parsing from pcap is important? This is because grpcdump doesn't need to imp
 
 GRPC on HTTP2 has an amazing feature: hpack header compression, which also causes trouble because we can't always capture the complete traffic from the beginning of connection, leaving us unable to hpack-decode the headers thereafter.
 
-Beside hpack issues, the missing request frames result in the similar consequences.
+Beside hpack issues, the missing request frames also lead to the similar consequences.
 
 To demonstrate this easily, let's make an etcd watch:
 
@@ -201,9 +201,9 @@ $ s grpcdump -i lo -p 2379 -f rpc.proto | grep 48576
 Jan 15 22:51:20.720648	127.0.0.1:2379->127.0.0.1:48576	packetno:638	streamid:1	data:(unknown)
 ```
 
-The data frame fails to be parsed because the watch request has been sent ahead of grpcdump's sniffing, and the missing request header makes it impossible to parse the data.
+The data frame fails to parse because the watch request has been sent ahead of grpcdump's sniffing, and the missing request header makes it impossible to parse the data.
 
-Unless we can guess!
+Unless we guess!
 
 `grpcdump --guest-path/-m` is designed just for this scenario:
 

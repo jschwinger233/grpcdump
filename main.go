@@ -75,9 +75,7 @@ func main() {
 		if err != nil {
 			return
 		}
-		cnt := 0
 		for packet := range ch {
-			cnt++
 			messages, err := parser.Parse(packet)
 			if err != nil {
 				return err
