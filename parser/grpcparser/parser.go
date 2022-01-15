@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 
 	"github.com/google/gopacket"
-	grpc "github.com/jschwinger23/grpcdump/grpchelper"
-	"github.com/jschwinger23/grpcdump/parser"
+	grpc "github.com/jschwinger233/grpcdump/grpchelper"
+	"github.com/jschwinger233/grpcdump/parser"
 	"golang.org/x/net/http2"
 )
 

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	grpc "github.com/jschwinger23/grpcdump/grpchelper"
-	"github.com/jschwinger23/grpcdump/grpchelper/grpcurl"
-	"github.com/jschwinger23/grpcdump/handler"
+	grpc "github.com/jschwinger233/grpcdump/grpchelper"
+	"github.com/jschwinger233/grpcdump/grpchelper/grpcurl"
+	"github.com/jschwinger233/grpcdump/handler"
 )
 
 type JsonHandler struct {

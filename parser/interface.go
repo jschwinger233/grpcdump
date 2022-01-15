@@ -2,7 +2,7 @@ package parser
 
 import (
 	"github.com/google/gopacket"
-	"github.com/jschwinger23/grpcdump/grpchelper"
+	"github.com/jschwinger233/grpcdump/grpchelper"
 )
 
 type Parser interface {

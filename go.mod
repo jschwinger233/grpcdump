@@ -1,4 +1,4 @@
-module github.com/jschwinger23/grpcdump
+module github.com/jschwinger233/grpcdump
 
 go 1.17
 

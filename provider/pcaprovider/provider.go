@@ -3,7 +3,7 @@ package pcaprovider
 import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
-	"github.com/jschwinger23/grpcdump/provider"
+	"github.com/jschwinger233/grpcdump/provider"
 )
 
 type PcapProvider struct {

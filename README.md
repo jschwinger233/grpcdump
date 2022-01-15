@@ -163,7 +163,7 @@ $ grpcdump -p 2379 -r etcd.pcap -f rpc.proto
 
 Why parsing from pcap is important? This is because grpcdump doesn't need to implement BPF filter (see `man 7 pcap-filter`) like `gateway snup and ip[2:2] > 576`; all you need to do, is to use `tcpdump` to generate a pcap file, then grpcdump will do the remaining.
 
-### 4. Method Guessing
+### 4. Path Guessing
 
 GRPC on HTTP2 has an amazing feature: hpack header compression, which also causes trouble because we can't always capture the complete traffic from the beginning of connection, leaving us unable to hpack-decode the headers thereafter.
 
