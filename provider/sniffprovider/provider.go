@@ -13,8 +13,8 @@ import (
 )
 
 type SniffProvider struct {
-	Device string
-	Port   int
+	Iface string
+	Port  int
 }
 
 func New(source string) provider.Provider {
@@ -27,13 +27,13 @@ func New(source string) provider.Provider {
 		log.Fatalf("invalid sniff port: %s", parts[1])
 	}
 	return &SniffProvider{
-		Device: parts[0],
-		Port:   port,
+		Iface: parts[0],
+		Port:  port,
 	}
 }
 
 func (p *SniffProvider) PacketStream() (_ <-chan gopacket.Packet, err error) {
-	handler, err := pcapgo.NewEthernetHandle(p.Device)
+	handler, err := pcapgo.NewEthernetHandle(p.Iface)
 	if err != nil {
 		return nil, err
 	}

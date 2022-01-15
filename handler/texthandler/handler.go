@@ -38,9 +38,12 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 			data = msg.Data.String()
 		}
 		fmt.Printf(
-			"%s\t%s\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
+			"%s\t%s:%d->%s:%d\tpacketno:%d\tstreamid:%d\tdata:%s%s\n",
 			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
-			msg.ConnID(),
+			msg.Src,
+			msg.Sport,
+			msg.Dst,
+			msg.Dport,
 			msg.PacketNumber,
 			msg.HTTP2Header.StreamID,
 			indicator,
@@ -66,9 +69,12 @@ func (h *TextHandler) Handle(msg grpc.Message) (err error) {
 			partialIndicator = "(partial)"
 		}
 		fmt.Printf(
-			"%s\t%s\tpacketno:%d\tstreamid:%d\theader:%s%+v\n",
+			"%s\t%s:%d->%s:%d\tpacketno:%d\tstreamid:%d\theader:%s%+v\n",
 			msg.CaptureInfo.Timestamp.Format(time.StampMicro),
-			msg.ConnID(),
+			msg.Src,
+			msg.Sport,
+			msg.Dst,
+			msg.Dport,
 			msg.PacketNumber,
 			msg.HTTP2Header.StreamID,
 			partialIndicator,

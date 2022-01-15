@@ -47,7 +47,7 @@ var flags []cli.Flag = []cli.Flag{
 		Required:    false,
 	},
 	&cli.BoolFlag{
-		Name:  "with-grpcurl",
+		Name:  "grpcurl",
 		Usage: "output request data with corresponding grpcurl",
 	},
 }
@@ -117,7 +117,7 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 		args.OutputFormat = Text
 	}
 
-	args.WithGrpcurl = ctx.Bool("with-grpcurl")
+	args.WithGrpcurl = ctx.Bool("grpcurl")
 
 	return args, args.Validate()
 }

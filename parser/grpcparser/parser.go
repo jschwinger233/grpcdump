@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"strconv"
 
 	"github.com/google/gopacket"
 	grpc "github.com/jschwinger23/grpcdump/grpchelper"
@@ -21,9 +20,11 @@ type Parser struct {
 	protoFilename string
 	servicePort   int
 	guessPaths    []string
-	protoParser   grpc.ProtoParser
-	streams       map[ConnID]map[StreamID][]grpc.Message
-	packetCount   int
+
+	protoParser  grpc.ProtoParser
+	streams      map[ConnID]map[StreamID][]grpc.Message
+	hpackDecoder *HpackDecoder
+	packetCount  int
 }
 
 func New(protoFilename string, servicePort int, guessPaths []string) (_ parser.Parser, err error) {
@@ -38,17 +39,29 @@ func New(protoFilename string, servicePort int, guessPaths []string) (_ parser.P
 		guessPaths:    guessPaths,
 		protoParser:   protoParser,
 		streams:       map[ConnID]map[StreamID][]grpc.Message{},
+		hpackDecoder:  newHpackDecoder(),
 	}, nil
 }
 
 func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err error) {
 	p.packetCount++
-	appLayer := packet.ApplicationLayer()
-	if appLayer == nil {
+
+	segment := TCPSegment{packet}
+	if !segment.HasApplicationLayer() {
 		return
 	}
-	payload := appLayer.Payload()
-	framer := http2.NewFramer(ioutil.Discard, bytes.NewReader(payload))
+
+	if segment.FIN() {
+		defer func() {
+			p.hpackDecoder.Clear(segment.ConnID())
+			delete(p.streams, segment.ConnID())
+		}()
+	}
+
+	framer := http2.NewFramer(
+		ioutil.Discard,
+		bytes.NewReader(segment.Payload()),
+	)
 	for {
 		frame, err := framer.ReadFrame()
 		if err != nil {
@@ -59,34 +72,33 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 		}
 
 		streamID := frame.Header().StreamID
-		sport, _ := strconv.Atoi(packet.TransportLayer().TransportFlow().Src().String())
-		dport, _ := strconv.Atoi(packet.TransportLayer().TransportFlow().Dst().String())
 		var message grpc.Message = grpc.Message{
 			Meta: grpc.Meta{
 				PacketNumber: p.packetCount,
 				CaptureInfo:  packet.Metadata().CaptureInfo,
 				HTTP2Header:  frame.Header(),
-				Src:          packet.NetworkLayer().NetworkFlow().Src().String(),
-				Dst:          packet.NetworkLayer().NetworkFlow().Dst().String(),
-				Sport:        sport,
-				Dport:        dport,
+				Src:          segment.Src(),
+				Dst:          segment.Dst(),
+				Sport:        segment.Sport(),
+				Dport:        segment.Dport(),
 			},
 			Ext: make(map[grpc.ExtKey]string),
 		}
-		if _, ok := p.streams[message.ConnID()]; !ok {
-			p.streams[message.ConnID()] = make(map[StreamID][]grpc.Message)
+		if _, ok := p.streams[segment.ConnID()]; !ok {
+			p.streams[segment.ConnID()] = make(map[StreamID][]grpc.Message)
 		}
+
 		switch frame := frame.(type) {
 		case *http2.HeadersFrame:
 			payload := map[string]string{}
-			headerFields, err := hpackDecode(message.ConnID(), frame)
+			headerFields, err := p.hpackDecoder.Decode(segment.ConnID(), frame)
 			if err == nil {
 				for _, field := range headerFields {
 					payload[field.Name] = field.Value
 				}
 			} else {
 				buf := frame.HeaderBlockFragment()
-				for _, field := range hpackDecodePartial(buf) {
+				for _, field := range p.hpackDecoder.DecodePartial(buf) {
 					payload[field.Name] = field.Value
 				}
 				message.Ext[grpc.HeaderPartiallyParsed] = ""
@@ -94,6 +106,13 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 			message.Type = grpc.HeaderType
 			message.Header = payload
+
+			if frame.StreamEnded() {
+				defer func() {
+					delete(p.streams[segment.ConnID()], streamID)
+					delete(p.streams[segment.RevConnID()], streamID)
+				}()
+			}
 
 		case *http2.DataFrame:
 			var possiblePaths []string
@@ -103,9 +122,9 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 				message.Ext[grpc.DataDirection] = grpc.C2S
 			}
 
-			searchStream := p.streams[message.ConnID()][streamID]
+			searchStream := p.streams[segment.ConnID()][streamID]
 			if message.Ext[grpc.DataDirection] == grpc.S2C {
-				searchStream = p.streams[message.RevConnID()][streamID]
+				searchStream = p.streams[segment.RevConnID()][streamID]
 			}
 			for _, msg := range searchStream {
 				if msg.Type == grpc.HeaderType {
@@ -151,7 +170,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 		default:
 			continue
 		}
-		p.streams[message.ConnID()][streamID] = append(p.streams[message.ConnID()][streamID], message)
+		p.streams[segment.ConnID()][streamID] = append(p.streams[segment.ConnID()][streamID], message)
 		messages = append(messages, message)
 	}
 	return messages, nil
