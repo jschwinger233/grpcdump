@@ -110,7 +110,6 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 			if frame.StreamEnded() {
 				defer func() {
 					delete(p.streams[segment.ConnID()], streamID)
-					delete(p.streams[segment.RevConnID()], streamID)
 				}()
 			}
 
