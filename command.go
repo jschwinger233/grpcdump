@@ -30,7 +30,7 @@ var flags []cli.Flag = []cli.Flag{
 	&cli.StringSliceFlag{
 		Name:     "proto-file",
 		Aliases:  []string{"f"},
-		Usage:    "proto file to parse http2 frame; e.g. -f rpc.proto",
+		Usage:    "proto file to parse http2 frame, can use multiple times; e.g. -f rpc1.proto -f rpc2.proto",
 		Required: true,
 	},
 	&cli.StringFlag{

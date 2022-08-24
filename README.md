@@ -40,9 +40,9 @@ I'm using Etcd v3.4.9, so I've prepared the proto files as follows:
         `-- http.proto
 ```
 
-- `rpc.proto` is copied from `etcdserver/etcdserverpb/rpc.proto`, where `Watch` service is defined;
+- `rpc.proto` is copied from `etcdserver/etcdserverpb/rpc.proto`, where the `Watch` service is defined;
 - the others are dependency of `rpc.proto`, you can see them from `import` definitions;
-- `auth.proto` and `kv.proto` can be found in etcd repo, the rest protos must be secured by downloading online: [gogo.proto](https://raw.githubusercontent.com/gogo/protobuf/master/gogoproto/gogo.proto), [annotations.proto](https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto), [http.proto](https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto), you are welcome;
+- `auth.proto` and `kv.proto` can be found in the etcd repo, and the rest protos must be secured by downloading online: [gogo.proto](https://raw.githubusercontent.com/gogo/protobuf/master/gogoproto/gogo.proto), [annotations.proto](https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto), [http.proto](https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto), you are welcome;
 
 ### 2. Sniffing
 
@@ -139,7 +139,7 @@ $ grpcdump -i lo -p 2379 -f rpc.proto -o json | jq
 ^C
 ```
 
-JSON output makes  convenience to filter as long as you are familar with [jq](https://stedolan.github.io/jq/), such as `grpcdump -i lo -p 2379 -f rpc.proto -o json | jq '. | select(.dport==44082)'` to filter out the frames from etcd to client with port 44082.
+JSON output makes convenience to filter data as long as you are familar with [jq](https://stedolan.github.io/jq/), such as `grpcdump -i lo -p 2379 -f rpc.proto -o json | jq '. | select(.dport==44082)'` to pick out the frames from etcd to client with port 44082.
 
 ### 3. Pcap Parsing
 
@@ -161,11 +161,11 @@ Then use `-r etcd.pcap` instead of previous `-i lo`:
 $ grpcdump -p 2379 -r etcd.pcap -f rpc.proto
 ```
 
-Why parsing from pcap is important? This is because grpcdump doesn't need to implement BPF filter (see `man 7 pcap-filter`) like `gateway snup and ip[2:2] > 576`; all you need to do, is to use `tcpdump` to generate a pcap file, then grpcdump will do the remaining.
+Parsing from pcap is important, because the grpcdump doesn't need to implement BPF filter (see `man 7 pcap-filter`) like `gateway snup and ip[2:2] > 576`; all you need to do, is to use `tcpdump(8)` to generate a pcap file, then the grpcdump will do the remaining.
 
 ### 4. Path Guessing
 
-GRPC on HTTP2 has an amazing feature: hpack header compression, which also causes trouble because we can't always capture the complete traffic from the beginning of connection, leaving us unable to hpack-decode the headers thereafter.
+GRPC on HTTP2 has an amazing feature: hpack header compression, which also causes troubles because we can't always capture the complete traffic from the beginning of connection, leaving us unable to hpack-decode the headers thereafter.
 
 Beside hpack issues, the missing request frames also lead to the similar consequences.
 
@@ -182,7 +182,7 @@ $ lsof -p $(pidof etcdctl)
 etcdctl 1803971 root    5u     IPv4 10672558      0t0      TCP localhost:48576->localhost:2379 (ESTABLISHED)
 ```
 
-Then grpcdump starts to sniff this connection:
+Then use grpcdump starts to sniff this connection:
 
 ```
 grpcdump -i lo -p 2379 -f rpc.proto | grep 48576
@@ -194,14 +194,14 @@ Then we put a key to trigger data push:
 etcdctl put /zc/a a
 ```
 
-And this time grpcdump gives us this:
+And this time the grpcdump gives us this:
 
 ```
 $ s grpcdump -i lo -p 2379 -f rpc.proto | grep 48576
 Jan 15 22:51:20.720648	127.0.0.1:2379->127.0.0.1:48576	packetno:638	streamid:1	data:(unknown)
 ```
 
-The data frame fails to parse because the watch request has been sent ahead of grpcdump's sniffing, and the missing request header makes it impossible to parse the data.
+The data frame fails to parse because the watch request has been sent ahead of the grpcdump's sniffing, and the missing request header makes it impossible to parse the data.
 
 Unless we guess!
 
@@ -216,7 +216,7 @@ See!
 
 If the data is parsed basing on guess, there is a `(guess)` indicator after data field.
 
-And grpcdump can even guess the missing `:path` automatically!
+And the grpcdump can even guess the missing `:path` automatically!
 
 ```
 $ grpcdump -i lo -p 2379 -f rpc.proto -m AUTO -o json | jq '. | select(.dport==48576)'
@@ -250,13 +250,13 @@ $ grpcdump -i lo -p 2379 -f rpc.proto -m AUTO -o json | jq '. | select(.dport==4
   },
   "ext": {
     "data_direction": "service_to_client",
-    "data_guessed": "",
+    "data_guessed": "yes",
     "data_path": "/etcdserverpb.Watch/Watch"
   }
 }
 ```
 
-It is awesome, isn't it?
+Awesome!
 
 ### 5. Copy As Grpcurl
 
@@ -272,6 +272,6 @@ grpcurl -plaintext -proto rpc.proto -d '{"key":"L2NhbGljby9yZXNvdXJjZXMvdjMvcHJv
 ^C
 ```
 
-See the last line above, you can simply copy that command and run it from terminal, to re-send an exactly same request.
+See the last line above, you can simply copy that command and run it from your terminal, to re-send an exactly same request.
 
 This is extremely useful to reproduce issues and investigate the causes.
