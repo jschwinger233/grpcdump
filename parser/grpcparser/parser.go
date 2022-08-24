@@ -27,19 +27,14 @@ type Parser struct {
 	packetCount  int
 }
 
-func New(protoFilenames []string, servicePort int, guessPaths []string) (_ parser.Parser, err error) {
-	protoParser, err := grpc.NewProtoParser(protoFilenames)
-	if err != nil {
-		return
-	}
+func New(protoParser grpc.ProtoParser, servicePort int, guessPaths []string) (_ parser.Parser, err error) {
 
 	return &Parser{
-		protoFilenames: protoFilenames,
-		servicePort:    servicePort,
-		guessPaths:     guessPaths,
-		protoParser:    protoParser,
-		streams:        map[ConnID]map[StreamID][]grpc.Message{},
-		hpackDecoder:   newHpackDecoder(),
+		servicePort:  servicePort,
+		guessPaths:   guessPaths,
+		protoParser:  protoParser,
+		streams:      map[ConnID]map[StreamID][]grpc.Message{},
+		hpackDecoder: newHpackDecoder(),
 	}, nil
 }
 

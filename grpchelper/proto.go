@@ -13,15 +13,18 @@ import (
 type ProtoParser interface {
 	MarshalRequest(path string, message []byte) (*dynamic.Message, error)
 	MarshalResponse(path string, message []byte) (*dynamic.Message, error)
+	GetPathFilenames() map[string]string
 	GetAllPaths() []string
 }
 
 type parser struct {
+	Paths     map[string]string
 	Requests  map[string]*desc.MessageDescriptor
 	Responses map[string]*desc.MessageDescriptor
 }
 
 func NewProtoParser(filenames []string) (_ ProtoParser, err error) {
+	paths := make(map[string]string)
 	requests := make(map[string]*desc.MessageDescriptor)
 	response := make(map[string]*desc.MessageDescriptor)
 
@@ -53,6 +56,7 @@ func NewProtoParser(filenames []string) (_ ProtoParser, err error) {
 				serviceName := fmt.Sprintf("%s.%s", parsedFile.GetPackage(), service.GetName())
 				for _, method := range service.GetMethods() {
 					path := fmt.Sprintf("/%s/%s", serviceName, method.GetName())
+					paths[path] = filepath.Join(dir, parsedFile.GetName())
 					requests[path] = method.GetInputType()
 					response[path] = method.GetOutputType()
 				}
@@ -60,6 +64,7 @@ func NewProtoParser(filenames []string) (_ ProtoParser, err error) {
 		}
 	}
 	return &parser{
+		Paths:     paths,
 		Requests:  requests,
 		Responses: response,
 	}, nil
@@ -83,8 +88,12 @@ func (p *parser) MarshalResponse(path string, message []byte) (*dynamic.Message,
 	return msg, msg.Unmarshal(message)
 }
 
+func (p *parser) GetPathFilenames() map[string]string {
+	return p.Paths
+}
+
 func (p *parser) GetAllPaths() (paths []string) {
-	for path := range p.Requests {
+	for path := range p.Paths {
 		paths = append(paths, path)
 	}
 	return

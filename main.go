@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/jschwinger233/grpcdump/grpchelper"
 	"github.com/jschwinger233/grpcdump/grpchelper/grpcurl"
 	"github.com/jschwinger233/grpcdump/handler"
 	"github.com/jschwinger233/grpcdump/handler/jsonhandler"
@@ -49,14 +50,19 @@ func main() {
 			return errors.New("provider not specified")
 		}
 
-		parser, err = grpcparser.New(args.ProtoFilenames, args.ServicePort, args.GuessPaths)
+		protoParser, err := grpchelper.NewProtoParser(args.ProtoFilenames)
+		if err != nil {
+			return
+		}
+
+		parser, err = grpcparser.New(protoParser, args.ServicePort, args.GuessPaths)
 		if err != nil {
 			return
 		}
 
 		var grpcurlManager *grpcurl.Manager
 		if args.WithGrpcurl {
-			grpcurlManager = grpcurl.New(args.ProtoFilenames)
+			grpcurlManager = grpcurl.New(protoParser.GetPathFilenames())
 		}
 
 		switch args.OutputFormat {
