@@ -136,7 +136,7 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 			}
 
 			if len(possiblePaths) == 0 {
-				message.Ext[grpc.DataGuessed] = ""
+				message.Ext[grpc.DataGuessed] = "yes"
 				possiblePaths = p.guessPaths
 				if len(possiblePaths) == 1 && possiblePaths[0] == "AUTO" {
 					possiblePaths = p.protoParser.GetAllPaths()
