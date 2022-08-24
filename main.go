@@ -49,14 +49,14 @@ func main() {
 			return errors.New("provider not specified")
 		}
 
-		parser, err = grpcparser.New(args.ProtoFilename, args.ServicePort, args.GuessPaths)
+		parser, err = grpcparser.New(args.ProtoFilenames, args.ServicePort, args.GuessPaths)
 		if err != nil {
 			return
 		}
 
 		var grpcurlManager *grpcurl.Manager
 		if args.WithGrpcurl {
-			grpcurlManager = grpcurl.New(args.ProtoFilename)
+			grpcurlManager = grpcurl.New(args.ProtoFilenames)
 		}
 
 		switch args.OutputFormat {

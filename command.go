@@ -27,7 +27,7 @@ var flags []cli.Flag = []cli.Flag{
 		Usage:    "pcap file to parse, incompatible with -i; e.g. -r packet.pcap",
 		Required: false,
 	},
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:     "proto-file",
 		Aliases:  []string{"f"},
 		Usage:    "proto file to parse http2 frame; e.g. -f rpc.proto",
@@ -75,9 +75,9 @@ type Args struct {
 	Source string
 
 	// parser
-	ServicePort   int
-	ProtoFilename string
-	GuessPaths    []string
+	ServicePort    int
+	ProtoFilenames []string
+	GuessPaths     []string
 
 	// outputter
 	OutputFormat
@@ -102,7 +102,7 @@ func newArgs(ctx *cli.Context) (args *Args, err error) {
 		args.Source = pcapFilename
 	}
 
-	args.ProtoFilename = ctx.String("proto-file")
+	args.ProtoFilenames = ctx.StringSlice("proto-file")
 	args.GuessPaths = strings.Split(ctx.String("guess-path"), ",")
 	if args.GuessPaths[0] == "" {
 		args.GuessPaths = []string{}

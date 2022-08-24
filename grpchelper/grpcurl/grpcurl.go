@@ -8,11 +8,11 @@ import (
 )
 
 type Manager struct {
-	protoFilename string
+	protoFilenames []string
 }
 
-func New(protoFilename string) *Manager {
-	return &Manager{protoFilename: protoFilename}
+func New(protoFilenames []string) *Manager {
+	return &Manager{protoFilenames: protoFilenames}
 }
 
 type RenderContext struct {
@@ -26,7 +26,7 @@ func (m *Manager) Render(ctx RenderContext) (cmd string, err error) {
 	payload, err := ctx.Payload.MarshalJSON()
 	return fmt.Sprintf(
 		"grpcurl -plaintext -proto %s -d '%s' %s:%d %s",
-		m.protoFilename,
+		m.protoFilenames[0], // TODO@gray
 		payload,
 		ctx.Dst,
 		ctx.Dport,

@@ -21,39 +21,41 @@ type parser struct {
 	Responses map[string]*desc.MessageDescriptor
 }
 
-func NewProtoParser(filename string) (_ ProtoParser, err error) {
+func NewProtoParser(filenames []string) (_ ProtoParser, err error) {
 	requests := make(map[string]*desc.MessageDescriptor)
 	response := make(map[string]*desc.MessageDescriptor)
 
-	if filename, err = filepath.Abs(filename); err != nil {
-		return
-	}
-	dir, base := filepath.Dir(filename), filepath.Base(filename)
-	fileNames, err := protoparse.ResolveFilenames([]string{dir}, base)
-	if err != nil {
-		return
-	}
-	p := protoparse.Parser{
-		ImportPaths:           []string{dir},
-		IncludeSourceCodeInfo: true,
-	}
-	parsedFiles, err := p.ParseFiles(fileNames...)
-	if err != nil {
-		return
-	}
+	for _, filename := range filenames {
+		if filename, err = filepath.Abs(filename); err != nil {
+			return
+		}
+		dir, base := filepath.Dir(filename), filepath.Base(filename)
+		fileNames, err := protoparse.ResolveFilenames([]string{dir}, base)
+		if err != nil {
+			return nil, err
+		}
+		p := protoparse.Parser{
+			ImportPaths:           []string{dir},
+			IncludeSourceCodeInfo: true,
+		}
+		parsedFiles, err := p.ParseFiles(fileNames...)
+		if err != nil {
+			return nil, err
+		}
 
-	if len(parsedFiles) < 1 {
-		err = errors.New("proto file not found")
-		return
-	}
+		if len(parsedFiles) < 1 {
+			err = errors.New("proto file not found")
+			return nil, err
+		}
 
-	for _, parsedFile := range parsedFiles {
-		for _, service := range parsedFile.GetServices() {
-			serviceName := fmt.Sprintf("%s.%s", parsedFile.GetPackage(), service.GetName())
-			for _, method := range service.GetMethods() {
-				path := fmt.Sprintf("/%s/%s", serviceName, method.GetName())
-				requests[path] = method.GetInputType()
-				response[path] = method.GetOutputType()
+		for _, parsedFile := range parsedFiles {
+			for _, service := range parsedFile.GetServices() {
+				serviceName := fmt.Sprintf("%s.%s", parsedFile.GetPackage(), service.GetName())
+				for _, method := range service.GetMethods() {
+					path := fmt.Sprintf("/%s/%s", serviceName, method.GetName())
+					requests[path] = method.GetInputType()
+					response[path] = method.GetOutputType()
+				}
 			}
 		}
 	}
