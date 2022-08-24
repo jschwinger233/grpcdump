@@ -177,9 +177,14 @@ func (p *Parser) Parse(packet gopacket.Packet) (messages []grpc.Message, err err
 
 func (p *Parser) unmarshalDataFrame(dataDirection string, path string, frame *http2.DataFrame) (message grpc.Message, err error) {
 	message.Ext = map[grpc.ExtKey]string{grpc.DataPath: path}
-	message.Data, err = p.protoParser.MarshalResponse(path, frame.Data()[5:])
+	data := frame.Data()
+	if len(data) > 5 {
+		data = data[5:]
+	}
 	if dataDirection == grpc.C2S {
-		message.Data, err = p.protoParser.MarshalRequest(path, frame.Data()[5:])
+		message.Data, err = p.protoParser.MarshalRequest(path, data)
+	} else {
+		message.Data, err = p.protoParser.MarshalResponse(path, data)
 	}
 	return
 }
